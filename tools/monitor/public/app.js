@@ -903,7 +903,6 @@ $('#ws-pick').addEventListener('click', async () => {
 
 $('#pick-new').addEventListener('click', () => {
   $('#pick').hidden = true;
-  $('#browse').hidden = true;
   $('#newproj').hidden = false;
   $('#newproj [name=name]').focus();
 });

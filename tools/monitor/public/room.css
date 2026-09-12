@@ -877,30 +877,6 @@ button{font:inherit;color:inherit}
 }
 #splash button.tiny{padding:3px 10px; font-size:10px; letter-spacing:.08em}
 
-#browse{text-align:left}
-#browse .crumb{margin:0 0 9px}
-#browse .crumb code{
-  display:block; font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11px;
-  color:#7DD3FC; background:rgba(125,211,252,.08); border:1px solid var(--edge);
-  padding:7px 11px; border-radius:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  direction:rtl; text-align:left;
-}
-#br-list{
-  max-height:230px; overflow-y:auto; display:flex; flex-direction:column; gap:3px;
-  border:1px solid var(--edge); border-radius:8px; padding:6px; margin-bottom:11px;
-  background:rgba(0,0,0,.25);
-}
-#br-list button{
-  text-align:left; padding:6px 10px; border-radius:5px; border:0; background:transparent;
-  color:var(--ink); font-size:12px; cursor:pointer; letter-spacing:0;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-}
-#br-list button:hover{background:rgba(125,211,252,.12); color:#7DD3FC}
-#br-list button.up{color:var(--faint)}
-#browse .hint{margin:0 0 12px; font-size:10.5px; color:var(--faint); line-height:1.6}
-#browse .row{display:flex; gap:9px}
-#browse .row button{flex:1}
-
 #newproj .stack{display:grid; grid-template-columns:1fr 1fr 1fr; gap:9px}
 #newproj select{
   background:rgba(255,255,255,.045); border:1px solid var(--edge); border-radius:7px;
