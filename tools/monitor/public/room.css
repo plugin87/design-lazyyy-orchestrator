@@ -4,7 +4,7 @@
 
 :root{
   --ink:#EAF1FB; --dim:#8EA3C2; --faint:#5C6E8C;
-  --glass:rgba(8,14,26,.72); --edge:rgba(125,211,252,.22);
+  --glass:rgba(8,14,26,.84); --edge:rgba(125,211,252,.22);
   --pass:#34D399; --warn:#F0B429; --stop:#FB7185;
   --hud:64px;
 }
@@ -41,11 +41,13 @@ button{font:inherit;color:inherit}
 #room.has-art::before{
   content:""; position:absolute; inset:0;
   background:var(--art) center/100% 100% no-repeat;
-  filter:brightness(.78) saturate(.95) contrast(1.03);
+  filter:brightness(.97) saturate(1.04) contrast(1.02);
 }
 #room::after{
   content:""; position:absolute; inset:0; pointer-events:none;
-  background:radial-gradient(ellipse 70% 65% at 50% 52%, transparent 35%, rgba(2,4,9,.72) 100%);
+  /* Warm, and far lighter than the neon set needed. Its job is to hold the
+     eye at the centre of the floor, not to put the room out. */
+  background:radial-gradient(ellipse 78% 74% at 50% 50%, transparent 46%, rgba(28,13,4,.44) 100%);
 }
 /* the floor disc the whole room reads from */
 #floorglow{
@@ -181,7 +183,7 @@ button{font:inherit;color:inherit}
   padding:3px 10px; border-radius:4px;
   background:var(--glass); border:1px solid color-mix(in srgb,var(--tint) 45%,transparent);
   backdrop-filter:blur(7px);
-  opacity:.42; transition:opacity .45s ease, box-shadow .45s ease;
+  opacity:.62; transition:opacity .45s ease, box-shadow .45s ease;
 }
 .station.awake .plate{opacity:1; box-shadow:0 0 24px -8px var(--tint)}
 .plate b{display:block; font-size:8.5px; letter-spacing:.17em; color:var(--tint); font-weight:700}

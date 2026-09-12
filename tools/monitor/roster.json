@@ -1,9 +1,5 @@
 {
-  "_note": "ตัวละคร → agent จริง · x,y เป็นเปอร์เซ็นต์บนภาพฉาก room-bg.png (1536x1024) · col,row คือช่องใน crew-sheet.png ที่เป็นตาราง 4x2",
-  "sheet": {
-    "cols": 4,
-    "rows": 2
-  },
+  "_note": "ตัวละคร → agent จริง · x,y เป็นเปอร์เซ็นต์บนภาพฉาก room-bg.png (1536x1024) · วัดจากการวางหมุดทับฉากจริง ไม่ใช่การกะ",
   "stations": [
     {
       "id": "experience-architect",
@@ -13,8 +9,8 @@
       "agent": "full-stack-design",
       "col": 0,
       "row": 0,
-      "x": 24.6,
-      "y": 51.5,
+      "x": 22.3,
+      "y": 47.5,
       "color": "#35C9F0",
       "glyph": "M3 17h4l3-9 3 14 3-9h5",
       "title": "PRINCIPAL DESIGN ARCHITECT"
@@ -27,8 +23,8 @@
       "agent": "project-manager",
       "col": 1,
       "row": 0,
-      "x": 37.8,
-      "y": 51.5,
+      "x": 36.2,
+      "y": 47.5,
       "color": "#F0B429",
       "glyph": "M12 6v6l4 2M4 12a8 8 0 1 0 16 0 8 8 0 0 0-16 0",
       "title": "PRINCIPAL DELIVERY LEAD"
@@ -41,8 +37,8 @@
       "agent": "product-owner",
       "col": 2,
       "row": 0,
-      "x": 61.3,
-      "y": 51.5,
+      "x": 63.9,
+      "y": 47.5,
       "color": "#A855F7",
       "glyph": "M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6",
       "title": "CHIEF PRODUCT STRATEGIST"
@@ -55,8 +51,8 @@
       "agent": "system-analyst",
       "col": 3,
       "row": 0,
-      "x": 75.0,
-      "y": 51.5,
+      "x": 77.4,
+      "y": 47.5,
       "color": "#3B82F6",
       "glyph": "M5 5h5v5H5z M14 14h5v5h-5z M10 7h4v7h-4 M7 10v4",
       "title": "PRINCIPAL SYSTEMS ANALYST"
@@ -69,8 +65,8 @@
       "agent": "quality-assurance",
       "col": 0,
       "row": 1,
-      "x": 26.0,
-      "y": 80.0,
+      "x": 24.3,
+      "y": 77.0,
       "color": "#34D399",
       "glyph": "M10 6a4 4 0 0 1 8 0 M6 14a8 8 0 0 0 16 0 M3 10l4 2 M3 18l4-2",
       "title": "LEAD QA SPECIALIST"
@@ -84,8 +80,8 @@
       "pathPrefix": "project/4-build/src",
       "col": 1,
       "row": 1,
-      "x": 42.3,
-      "y": 80.0,
+      "x": 41.7,
+      "y": 77.0,
       "color": "#E879F9",
       "glyph": "M3 5h18v12H3z M3 9h18 M7 7h.01 M10 7h.01",
       "title": "STAFF FRONTEND ENGINEER"
@@ -99,8 +95,8 @@
       "pathPrefix": "project/4-build/server",
       "col": 2,
       "row": 1,
-      "x": 58.0,
-      "y": 80.0,
+      "x": 59.0,
+      "y": 77.0,
       "color": "#10D9A0",
       "glyph": "M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3z M4 7v10c0 1.7 3.6 3 8 3s8-1.3 8-3V7",
       "title": "STAFF BACKEND ENGINEER"
@@ -113,14 +109,14 @@
       "agent": "code-reviewer",
       "col": 3,
       "row": 1,
-      "x": 73.9,
-      "y": 80.0,
+      "x": 75.4,
+      "y": 77.0,
       "color": "#60A5FA",
       "glyph": "M5 12l4 4 10-10 M4 5h6 M4 19h6",
       "title": "LEAD CODE REVIEWER"
     }
   ],
-  "_extra": "agent ที่ยังไม่มีภาพ · ได้โต๊ะที่วาดด้วย CSS ในสไตล์เดียวกัน",
+  "_extra": "agent ที่ไม่มีโต๊ะในแถวหลัก · ได้ที่นั่งริมสองข้างและรางกลาง",
   "extra": [
     {
       "id": "project-intake",
@@ -128,8 +124,8 @@
       "role": "Project Intake",
       "th": "ผู้เชี่ยวชาญการเก็บโจทย์",
       "agent": "project-intake",
-      "x": 50.0,
-      "y": 51.5,
+      "x": 50.1,
+      "y": 47.5,
       "color": "#F59E0B",
       "glyph": "M9 4h6v3H9z M6 7h12v14H6z M9 12h6 M9 16h4",
       "title": "DISCOVERY SPECIALIST"
@@ -140,8 +136,8 @@
       "role": "Document Control",
       "th": "นายทะเบียนเอกสาร",
       "agent": "document-control",
-      "x": 9.9,
-      "y": 80.0,
+      "x": 8.9,
+      "y": 77.0,
       "color": "#94A3B8",
       "glyph": "M6 3h9l4 4v14H6z M15 3v4h4 M9 12h7 M9 16h7",
       "title": "DOCUMENT CONTROL OFFICER"
@@ -152,8 +148,8 @@
       "role": "DevOps / Release",
       "th": "วิศวกรปล่อยรุ่นระดับสูงสุด",
       "agent": "devops-release",
-      "x": 90.2,
-      "y": 80.0,
+      "x": 90.8,
+      "y": 77.0,
       "color": "#FB7185",
       "glyph": "M12 2l3 6 6 1-4.5 4.5L18 20l-6-3-6 3 1.5-6.5L3 9l6-1z",
       "title": "PRINCIPAL RELEASE ENGINEER"
