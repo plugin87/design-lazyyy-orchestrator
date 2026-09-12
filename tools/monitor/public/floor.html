@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="th">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mission Control · ผังสายงาน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<!--
+  ผังสายงาน — the operations floor, laid out as the pipeline itself.
+
+  The painted room seats eleven specialists in a scene. It is atmospheric, and
+  it hides the one thing a command centre exists to show: who owns what, and
+  where the work is right now. A viewer can read "THE CORE" off a nameplate and
+  still not know that it is the backend half of `developer`, that it wakes in
+  the build stage, or that G4 stands between it and review.
+
+  So this floor is not a picture of a room. It is the pipeline drawn to scale:
+  stations sit in the order work flows through them, each gate sits in the gap
+  it actually guards, and every station states the deliverable it owns whether
+  or not it is awake. Layout carries the meaning; the art is decoration on top.
+
+  Everything on screen comes from an event that happened. A station that is dark
+  is a station that has not been called. There is no bar that advances because
+  time passed.
+-->
+
+<style>
+:root{
+  --bg:#05070E; --panel:#0A1120; --raised:#0F1728;
+  --ink:#E8EEF8; --dim:#8FA3BF; --faint:#5A6B85;
+  --edge:rgba(125,211,252,.16); --edge-2:rgba(125,211,252,.30);
+  --accent:#7DD3FC; --pass:#34D399; --warn:#F0B429; --stop:#FB7185;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,monospace;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink); min-height:100vh;
+  font-family:"IBM Plex Sans Thai","IBM Plex Sans",system-ui,sans-serif;
+  font-size:14px; line-height:1.5;
+  background-image:
+    radial-gradient(1200px 600px at 50% -10%, rgba(125,211,252,.07), transparent 70%),
+    radial-gradient(900px 500px at 90% 110%, rgba(168,85,247,.05), transparent 70%);
+  background-attachment:fixed;
+}
+[hidden]{display:none !important}
+button{font:inherit; cursor:pointer}
+
+/* ── header ─────────────────────────────────────────────────────────────── */
+header{
+  position:sticky; top:0; z-index:30; background:rgba(5,7,14,.93);
+  backdrop-filter:blur(12px); border-bottom:1px solid var(--edge);
+  padding:12px 20px; display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+}
+.brand{display:flex; align-items:baseline; gap:11px; margin-right:auto}
+.brand b{font-size:13px; letter-spacing:.30em; color:var(--accent); font-weight:600}
+.brand span{font-size:12px; color:var(--dim)}
+.brand span em{font-style:normal; color:var(--ink); font-weight:500}
+.meter{
+  display:flex; gap:0; align-items:stretch; border:1px solid var(--edge);
+  border-radius:8px; overflow:hidden; background:var(--panel);
+}
+.meter div{padding:5px 13px; text-align:center; border-right:1px solid var(--edge)}
+.meter div:last-child{border-right:0}
+.meter b{display:block; font-family:var(--mono); font-size:14px; line-height:1.2}
+.meter u{
+  display:block; text-decoration:none; font-size:9px; color:var(--faint);
+  letter-spacing:.10em; margin-top:2px;
+}
+#link{
+  font-size:11px; color:var(--dim); text-decoration:none; border:1px solid var(--edge);
+  padding:5px 11px; border-radius:7px;
+}
+#link:hover{color:var(--accent); border-color:var(--edge-2)}
+
+/* ── verdict ────────────────────────────────────────────────────────────── */
+#verdict{
+  display:flex; align-items:center; gap:11px; padding:6px 14px;
+  border:1px solid var(--edge); border-radius:8px; background:var(--panel);
+}
+#verdict b{font-family:var(--mono); font-size:12px; letter-spacing:.14em}
+#verdict span{font-size:11px; color:var(--dim)}
+#verdict.pass{border-color:rgba(52,211,153,.5)} #verdict.pass b{color:var(--pass)}
+#verdict.corrected{border-color:rgba(240,180,41,.5)} #verdict.corrected b{color:var(--warn)}
+#verdict.blocked{border-color:rgba(251,113,133,.55)} #verdict.blocked b{color:var(--stop)}
+
+/* ── conductor ──────────────────────────────────────────────────────────── */
+#conductor{
+  margin:18px 20px 0; padding:13px 18px; border-radius:12px;
+  border:1px solid var(--edge); background:linear-gradient(180deg,var(--raised),var(--panel));
+  display:flex; align-items:center; gap:15px;
+}
+#conductor .dot{
+  width:11px; height:11px; border-radius:50%; background:var(--faint); flex:none;
+}
+#conductor.live .dot{background:var(--accent); box-shadow:0 0 0 0 rgba(125,211,252,.55); animation:ping 1.8s ease-out infinite}
+@keyframes ping{to{box-shadow:0 0 0 13px rgba(125,211,252,0)}}
+#conductor b{font-size:11px; letter-spacing:.22em; color:var(--accent); font-weight:600}
+#conductor p{margin:2px 0 0; font-size:12px; color:var(--dim)}
+#conductor .who{margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--faint); text-align:right}
+
+/* ── the floor ──────────────────────────────────────────────────────────── */
+#floor{
+  display:flex; align-items:stretch; gap:0; overflow-x:auto; padding:20px;
+  scrollbar-width:thin;
+}
+.lane{flex:1 1 0; min-width:150px; display:flex; flex-direction:column; gap:9px}
+.lane > h2{
+  margin:0; font-size:9.5px; letter-spacing:.20em; color:var(--faint);
+  font-weight:600; text-transform:uppercase; padding-left:2px;
+}
+.lane.due > h2{color:var(--accent)}
+.lane .cards{display:flex; flex-direction:column; gap:9px; flex:1}
+
+/* gate columns sit in the gap they actually guard */
+.gate{
+  flex:0 0 auto; width:42px; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:6px; padding-top:20px;
+}
+.gate i{
+  width:1px; flex:1; background:linear-gradient(180deg,transparent,var(--edge),transparent);
+}
+.gate b{
+  font-family:var(--mono); font-size:11px; color:var(--faint); font-weight:500;
+  border:1px solid var(--edge); border-radius:6px; padding:3px 7px; background:var(--panel);
+}
+.gate span{font-size:8px; color:var(--faint); text-align:center; line-height:1.3; max-width:40px}
+.gate.pass b{color:var(--pass); border-color:rgba(52,211,153,.45); background:rgba(52,211,153,.10)}
+.gate.fail b{color:var(--stop); border-color:rgba(251,113,133,.45)}
+
+/* ── station ────────────────────────────────────────────────────────────── */
+.st{
+  --tint:var(--accent);
+  position:relative; border:1px solid var(--edge); border-radius:11px;
+  background:var(--panel); padding:10px 10px 9px; overflow:hidden;
+  transition:border-color .25s, background .25s, transform .25s;
+}
+.st::before{
+  content:""; position:absolute; left:0; top:0; bottom:0; width:2px;
+  background:var(--tint); opacity:.30; transition:opacity .25s;
+}
+.st .top{display:flex; gap:9px; align-items:flex-start}
+.st .face{
+  width:40px; height:40px; flex:none; border-radius:8px; overflow:hidden;
+  border:1px solid var(--edge); background:#0B1320 center top/cover no-repeat;
+  filter:grayscale(.75) brightness(.62); transition:filter .3s;
+  background-size:170%; background-position:center 12%;
+}
+.st .id{min-width:0; flex:1}
+.st .id b{
+  display:block; font-size:11px; letter-spacing:.11em; font-weight:600;
+  color:var(--dim); transition:color .25s;
+}
+.st .id u{
+  display:block; text-decoration:none; font-size:9.5px; color:var(--faint);
+  letter-spacing:.05em; margin-top:1px;
+}
+.st .id em{display:block; font-style:normal; font-size:11px; color:var(--faint); margin-top:3px}
+
+.st .owns{display:flex; flex-wrap:wrap; gap:3px; margin-top:9px}
+.st .owns i{
+  font-style:normal; font-family:var(--mono); font-size:8.5px; letter-spacing:.06em;
+  color:var(--faint); border:1px solid var(--edge); border-radius:4px; padding:1px 5px;
+}
+
+.st .now{
+  margin-top:9px; padding-top:8px; border-top:1px solid var(--edge);
+  display:flex; align-items:center; gap:7px; min-height:25px;
+}
+.st .now .pip{width:6px; height:6px; border-radius:50%; background:var(--faint); flex:none}
+.st .now p{
+  margin:0; font-size:10.5px; color:var(--faint); min-width:0; flex:1;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.st .now .n{font-family:var(--mono); font-size:9.5px; color:var(--faint); flex:none}
+
+/* states — every one of them is caused by an event that arrived */
+.st.due{border-color:var(--edge-2); background:var(--raised)}
+.st.due .id b{color:var(--ink)}
+.st.due::before{opacity:.6}
+
+.st.busy{border-color:var(--tint); background:var(--raised); transform:translateY(-1px)}
+.st.busy::before{opacity:1}
+.st.busy .face{filter:none}
+.st.busy .id b{color:var(--tint)}
+.st.busy .now p{color:var(--ink)}
+.st.busy .now .pip{background:var(--tint); animation:beat 1.1s ease-in-out infinite}
+@keyframes beat{50%{opacity:.25; transform:scale(.75)}}
+
+.st.done{border-color:rgba(52,211,153,.32)}
+.st.done .face{filter:grayscale(.35) brightness(.85)}
+.st.done .id b{color:var(--ink)}
+.st.done .now .pip{background:var(--pass)}
+
+.st.failed{border-color:rgba(251,113,133,.5)}
+.st.failed .now .pip{background:var(--stop)}
+.st.failed .now p{color:var(--stop)}
+
+/* the archivist works across every stage, so it gets its own rail */
+#rail{
+  margin:0 20px 18px; border:1px dashed var(--edge); border-radius:11px;
+  padding:10px 14px; display:flex; align-items:center; gap:13px;
+}
+#rail .face{
+  width:36px; height:36px; border-radius:8px; flex:none; border:1px solid var(--edge);
+  background:#0B1320 center 12%/170% no-repeat; filter:grayscale(.75) brightness(.62);
+  transition:filter .3s;
+}
+#rail.busy .face{filter:none}
+#rail b{font-size:11px; letter-spacing:.11em; color:var(--dim); font-weight:600}
+#rail u{text-decoration:none; font-size:9.5px; color:var(--faint); margin-left:9px}
+#rail p{margin:2px 0 0; font-size:10.5px; color:var(--faint)}
+#rail .scope{margin-left:auto; font-size:9.5px; color:var(--faint); text-align:right}
+
+/* ── feed ───────────────────────────────────────────────────────────────── */
+#feedwrap{margin:0 20px 24px; border:1px solid var(--edge); border-radius:11px; background:var(--panel)}
+#feedwrap h2{
+  margin:0; padding:10px 15px; font-size:9.5px; letter-spacing:.20em; color:var(--faint);
+  font-weight:600; border-bottom:1px solid var(--edge); display:flex; gap:10px; align-items:center;
+}
+#feedwrap h2 span{margin-left:auto; font-family:var(--mono); letter-spacing:.06em}
+#feed{margin:0; padding:7px 0; list-style:none; max-height:270px; overflow-y:auto}
+#feed li{
+  display:flex; gap:11px; align-items:baseline; padding:3px 15px; font-size:11.5px;
+  animation:rise .25s ease-out;
+}
+@keyframes rise{from{opacity:0; transform:translateY(4px)}}
+#feed time{font-family:var(--mono); font-size:9.5px; color:var(--faint); flex:none}
+#feed i{
+  font-style:normal; font-size:9.5px; letter-spacing:.07em; flex:none; width:74px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--dim);
+}
+#feed p{margin:0; color:var(--dim); min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+#feed li.hi p{color:var(--ink)}
+#feed .empty{color:var(--faint); padding:14px 15px; font-size:11.5px}
+
+/* ── quiet state ────────────────────────────────────────────────────────── */
+#quiet{
+  margin:0 20px 20px; padding:12px 16px; border-radius:10px;
+  border:1px solid var(--edge); background:var(--panel);
+  font-size:11.5px; color:var(--faint); line-height:1.65;
+}
+#quiet b{color:var(--dim); font-weight:500}
+
+@media (max-width:1180px){
+  .lane{flex:0 0 auto; min-width:184px}
+}
+@media (max-width:720px){
+  header{padding:10px 14px; gap:11px}
+  .brand{width:100%; margin-right:0}
+  #floor{padding:14px 14px 4px}
+  .lane{min-width:186px}
+  #conductor,#rail,#feedwrap,#quiet{margin-left:14px; margin-right:14px}
+  #conductor .who{display:none}
+}
+</style>
+
+<header>
+  <div class="brand">
+    <b>MISSION CONTROL</b>
+    <span id="proj">กำลังต่อ…</span>
+  </div>
+  <div id="verdict" hidden><b></b><span></span></div>
+  <div class="meter">
+    <div><b id="m-stage">—</b><u>ระยะ</u></div>
+    <div><b id="m-acts">0</b><u>ลงมือ</u></div>
+    <div><b id="m-hand">0</b><u>ส่งงาน</u></div>
+    <div><b id="m-tok">—</b><u>TOKENS</u></div>
+  </div>
+  <a id="link" href="/">ห้องเดิม</a>
+</header>
+
+<div id="conductor">
+  <span class="dot"></span>
+  <div>
+    <b>ORCHESTRATOR</b>
+    <p id="c-say">ยังไม่มีสายงานเดินอยู่</p>
+  </div>
+  <div class="who" id="c-who"></div>
+</div>
+
+<div id="floor"></div>
+
+<div id="rail" hidden>
+  <div class="face"></div>
+  <div>
+    <b>THE ARCHIVIST</b><u>DOCUMENT CONTROL OFFICER</u>
+    <p>ทะเบียนเอกสาร · รหัสและฉบับแก้ไข — ทำงานคร่อมทุกระยะ ไม่ได้เป็นของระยะใดระยะหนึ่ง</p>
+  </div>
+  <div class="scope" id="rail-n">ลงมือ 0 ครั้ง</div>
+</div>
+
+<div id="quiet">
+  <b>ห้องที่เงียบแปลว่าสายงานเงียบ ไม่ใช่ห้องเสีย</b> — ทุกอย่างบนหน้านี้มาจากเหตุการณ์ที่เกิดขึ้นจริง
+  ใน Claude Code สถานีที่ยังมืดคือสถานีที่ยังไม่ถูกเรียก และไม่มีแถบไหนที่เดินเพราะเวลาผ่านไป
+</div>
+
+<div id="feedwrap">
+  <h2>สิ่งที่เกิดขึ้น<span id="feed-n"></span></h2>
+  <ul id="feed"><li class="empty">ยังไม่มีเหตุการณ์</li></ul>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+
+/* Which stage each station belongs to, and what it is on the hook for. The
+   pipeline order is the floor plan, so this table is the layout. */
+const PLAN = [
+  { stage:'intake',   th:'เก็บโจทย์',  ids:['project-intake'] },
+  { gate:'G1' },
+  { stage:'product',  th:'อะไร · ทำไม', ids:['the-visionary','time-marshal'] },
+  { gate:'G2' },
+  { stage:'analysis', th:'สร้างได้จริงไหม', ids:['systems-sage'] },
+  { gate:'G3' },
+  { stage:'design',   th:'หน้าตาเป็นยังไง', ids:['experience-architect'] },
+  { stage:'build',    th:'ลงมือสร้าง', ids:['the-interface','the-core'] },
+  { gate:'G4' },
+  { stage:'review',   th:'โค้ดผ่านไหม', ids:['the-orchestrator'] },
+  { gate:'G5' },
+  { stage:'quality',  th:'พร้อมส่งไหม', ids:['bug-hunter'] },
+  { gate:'G6' },
+  { stage:'release',  th:'ปล่อยได้ไหม', ids:['devops-release'] },
+];
+
+const OWNS = {
+  'project-intake':      ['project.yml'],
+  'the-visionary':       ['PRD','REQ','TRN'],
+  'time-marshal':        ['EST','WBS','SCH'],
+  'systems-sage':        ['SRS','ARC','DM','NAV','TST'],
+  'experience-architect':['DSN','tokens','components'],
+  'the-interface':       ['src/','เทสต์'],
+  'the-core':            ['server/','เทสต์'],
+  'the-orchestrator':    ['RVW'],
+  'bug-hunter':          ['QAR'],
+  'devops-release':      ['REL'],
+  'document-control':    ['REGISTER'],
+};
+
+const S = {
+  by:new Map(),        // id  -> { el, def, acts, since }
+  byAgent:new Map(),   // agent -> [station,…]
+  stage:null, gates:[], acts:0, hand:0,
+  seen:new Set(),      // history is replayed on every reconnect — count once
+};
+
+const clip = (s, n = 74) => !s ? '' : (s.length > n ? s.slice(0, n - 1) + '…' : s);
+const clock = ts => new Date((ts || Date.now() / 1000) * 1000)
+  .toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+
+/* ── build the floor ────────────────────────────────────────────────────── */
+function build(roster) {
+  const defs = new Map();
+  for (const p of [...(roster.stations || []), ...(roster.extra || [])]) defs.set(p.id, p);
+  const gateName = Object.fromEntries((roster.gates || []).map(g => [g.id, g.th]));
+
+  const floor = $('#floor');
+  floor.textContent = '';
+
+  for (const slot of PLAN) {
+    if (slot.gate) {
+      const g = document.createElement('div');
+      g.className = 'gate'; g.dataset.gate = slot.gate;
+      g.innerHTML = `<i></i><b>${slot.gate}</b>
+        <span>${gateName[slot.gate] ?? ''}</span><i></i>`;
+      floor.appendChild(g);
+      continue;
+    }
+    const lane = document.createElement('section');
+    lane.className = 'lane'; lane.dataset.stage = slot.stage;
+    lane.innerHTML = `<h2>${slot.stage} · ${slot.th}</h2><div class="cards"></div>`;
+    const cards = lane.querySelector('.cards');
+
+    for (const id of slot.ids) {
+      const d = defs.get(id);
+      if (!d) continue;                       // a roster without it draws nothing
+      const el = document.createElement('article');
+      el.className = 'st'; el.dataset.id = id;
+      el.style.setProperty('--tint', d.color || '#7DD3FC');
+      el.innerHTML = `
+        <div class="top">
+          <div class="face"></div>
+          <div class="id">
+            <b>${d.name}</b>
+            <u>${d.title ?? d.role ?? ''}</u>
+            <em>${d.th ?? ''}</em>
+          </div>
+        </div>
+        <div class="owns">${(OWNS[id] || []).map(o => `<i>${o}</i>`).join('')}</div>
+        <div class="now"><span class="pip"></span><p>พร้อมรับงาน</p><span class="n"></span></div>`;
+      cards.appendChild(el);
+      face(el.querySelector('.face'), id);
+
+      const st = { el, def:d, acts:0 };
+      S.by.set(id, st);
+      if (!S.byAgent.has(d.agent)) S.byAgent.set(d.agent, []);
+      S.byAgent.get(d.agent).push(st);
+    }
+    floor.appendChild(lane);
+  }
+
+  // the archivist spans every stage, so it gets a rail rather than a lane
+  const arch = defs.get('document-control');
+  if (arch) {
+    const rail = $('#rail');
+    rail.hidden = false;
+    face(rail.querySelector('.face'), 'document-control');
+    const st = { el:rail, def:arch, acts:0, rail:true };
+    S.by.set('document-control', st);
+    S.byAgent.set(arch.agent, [st]);
+  }
+}
+
+/** Portrait art is optional — a station with none keeps its empty frame. */
+function face(el, id) {
+  const url = `art/crew-${id}.png`;
+  const img = new Image();
+  img.onload = () => { el.style.backgroundImage = `url(${url})`; };
+  img.src = url;
+}
+
+/** A role can own more than one station: `developer` builds both the client and
+ *  the server, and the file it wrote decides which one lights up — not a guess. */
+function resolve(agent, path) {
+  const list = S.byAgent.get(agent);
+  if (!list?.length) return null;
+  if (list.length === 1) return list[0];
+  if (path) {
+    const hit = list.find(o => o.def.pathPrefix && path.startsWith(o.def.pathPrefix));
+    if (hit) return hit;
+  }
+  return list.find(o => o.el.classList.contains('busy')) ?? list[0];
+}
+
+/* ── state on screen ────────────────────────────────────────────────────── */
+function paintStage() {
+  const order = PLAN.filter(s => s.stage).map(s => s.stage);
+  const at = order.indexOf(S.stage);
+  $('#m-stage').textContent = at < 0 ? '—' : `${at + 1}/${order.length}`;
+  for (const lane of document.querySelectorAll('.lane')) {
+    const i = order.indexOf(lane.dataset.stage);
+    lane.classList.toggle('due', i === at);
+    for (const card of lane.querySelectorAll('.st')) {
+      if (card.classList.contains('busy') || card.classList.contains('failed')) continue;
+      card.classList.toggle('due', i === at);
+      card.classList.toggle('done', i >= 0 && i < at);
+    }
+  }
+}
+
+function paintGates() {
+  // `attempt` matters: a gate that failed twice and passed on the third is not
+  // the same as one that passed first time, and neither may be hidden.
+  const last = new Map();
+  for (const g of S.gates) last.set(g.id, g);
+  for (const el of document.querySelectorAll('.gate')) {
+    const g = last.get(el.dataset.gate);
+    el.classList.toggle('pass', g?.result === 'pass');
+    el.classList.toggle('fail', !!g && g.result !== 'pass');
+    el.title = g ? `${g.name ?? ''} · ${g.result} · รอบ ${g.attempt ?? 1}` : 'ยังไม่ผ่าน';
+  }
+}
+
+function say(text, who = '') {
+  $('#c-say').textContent = text;
+  $('#c-who').textContent = who;
+}
+
+function busy(st, text) {
+  if (!st) return;
+  for (const other of S.by.values()) if (other !== st) other.el.classList.remove('busy');
+  st.el.classList.remove('done', 'failed');
+  st.el.classList.add('busy');
+  if (!st.rail && text) st.el.querySelector('.now p').textContent = text;
+  $('#conductor').classList.add('live');
+}
+
+function act(st) {
+  if (!st) return;
+  st.acts++; S.acts++;
+  $('#m-acts').textContent = S.acts.toLocaleString('th-TH');
+  const n = st.rail ? $('#rail-n') : st.el.querySelector('.now .n');
+  n.textContent = st.rail ? `ลงมือ ${st.acts} ครั้ง` : `${st.acts}`;
+}
+
+function verdict(word, note) {
+  const box = $('#verdict');
+  if (!word) { box.hidden = true; return; }
+  box.hidden = false;
+  box.className = word.toLowerCase();
+  box.querySelector('b').textContent = word;
+  box.querySelector('span').textContent = note;
+}
+
+function feed(ev, who, text, hi = false) {
+  const ul = $('#feed');
+  ul.querySelector('.empty')?.remove();
+  const li = document.createElement('li');
+  if (hi) li.className = 'hi';
+  li.innerHTML = `<time>${clock(ev.ts)}</time><i></i><p></p>`;
+  li.querySelector('i').textContent = who;
+  li.querySelector('p').textContent = text;
+  li.querySelector('p').title = text;
+  ul.prepend(li);
+  while (ul.children.length > 90) ul.lastElementChild.remove();
+  $('#feed-n').textContent = `${ul.children.length} รายการ`;
+}
+
+/* ── events ─────────────────────────────────────────────────────────────── */
+/* The server replays the last 300 events to every new connection, and a dropped
+   connection reconnects. Without a key, each reconnect would count the same
+   tool call again and the tallies would drift upward on a bad network alone. */
+function key(ev) {
+  return [ev.ts, ev.kind, ev.agent ?? '', ev.path ?? '', ev.tool ?? '', ev.stage ?? ''].join('|');
+}
+
+function handle(ev) {
+  if (S.seen.has(key(ev))) return;
+  S.seen.add(key(ev));
+
+  switch (ev.kind) {
+    case 'prompt':
+      say(clip(ev.text, 90), 'จากเจ้าของโปรเจกต์');
+      feed(ev, 'สั่งงาน', ev.text ?? '', true);
+      break;
+
+    case 'stage': {
+      S.stage = ev.stage;
+      paintStage();
+      const st = resolve(ev.agent);
+      if (ev.state === 'running') {
+        busy(st, 'กำลังทำงาน');
+        say(`ระยะ ${ev.stage} — ${ev.agent}`, `${ev.index}/${ev.total}`);
+      } else if (st) {
+        st.el.classList.remove('busy');
+        st.el.classList.add(ev.state === 'failed' ? 'failed' : 'done');
+        if (!st.rail) st.el.querySelector('.now p').textContent =
+          ev.state === 'failed' ? 'ไม่ได้ผลลัพธ์' : 'ส่งงานแล้ว';
+      }
+      feed(ev, ev.stage, `${ev.agent} · ${ev.state}`, true);
+      break;
+    }
+
+    case 'agent_start': {
+      const st = resolve(ev.agent);
+      busy(st, 'เริ่มทำงาน');
+      say(`${ev.agent} กำลังทำงาน`);
+      feed(ev, ev.agent, 'เริ่มทำงาน');
+      break;
+    }
+
+    case 'tool': {
+      const st = resolve(ev.agent, ev.path);
+      const what = ev.path ? ev.path.replace(/^project\//, '') : (ev.tool ?? '');
+      busy(st, clip(what));
+      act(st);
+      if (ev.verdict) {
+        verdict(ev.verdict, { PASS:'ตรวจกับของจริงแล้วผ่าน',
+          CORRECTED:'มีข้อบกพร่องที่แก้ได้เอง', BLOCKED:'ต้องใช้คนจริงหรือข้อมูลจริง' }[ev.verdict] ?? '');
+      }
+      feed(ev, ev.agent ?? ev.tool ?? '', clip(ev.text || what, 110), !!ev.verdict);
+      break;
+    }
+
+    case 'agent_stop': {
+      const st = resolve(ev.agent);
+      if (st) {
+        st.el.classList.remove('busy');
+        st.el.classList.add('done');
+        if (!st.rail && ev.text) st.el.querySelector('.now p').textContent = clip(ev.text, 46);
+      }
+      S.hand++; $('#m-hand').textContent = S.hand;
+      feed(ev, ev.agent, clip(ev.text || 'ส่งงาน', 110), true);
+      break;
+    }
+
+    case 'run':
+      $('#conductor').classList.toggle('live', ev.state === 'started');
+      if (ev.state !== 'started') {
+        for (const st of S.by.values()) st.el.classList.remove('busy');
+        say(ev.code === 0 ? 'สายงานเดินจบ' : 'สายงานหยุดแล้ว', `code ${ev.code ?? '—'}`);
+      }
+      feed(ev, 'สายงาน', ev.state === 'started' ? 'เริ่ม' : `จบ · code ${ev.code ?? '—'}`, true);
+      break;
+
+    case 'turn_end':
+    case 'session_end':
+      $('#conductor').classList.remove('live');
+      for (const st of S.by.values()) st.el.classList.remove('busy');
+      break;
+
+    case 'standing':
+    case 'note':
+      say(clip(ev.text, 110));
+      feed(ev, 'บันทึก', ev.text ?? '');
+      break;
+  }
+}
+
+/* ── boot ───────────────────────────────────────────────────────────────── */
+async function boot() {
+  const s = await fetch('/state').then(r => r.json());
+  build(s.roster || {});
+
+  $('#proj').innerHTML = s.active
+    ? `<em>${s.active}</em> · ${s.projects?.[s.active]?.name ?? ''}`
+    : 'ยังไม่ได้เลือกโปรเจกต์';
+
+  S.stage = s.project?.stage ?? null;
+  S.gates = s.project?.gates ?? [];
+  paintStage(); paintGates();
+
+  try {
+    const u = await fetch('/usage').then(r => r.json());
+    if (u?.billable) $('#m-tok').textContent = u.billable > 9999
+      ? (u.billable / 1000).toFixed(1) + 'k' : String(u.billable);
+  } catch { /* usage is a nicety; the floor works without it */ }
+
+  connect();
+}
+
+let retry = 0;
+function connect() {
+  const src = new EventSource('/events');
+  src.addEventListener('hook', e => {
+    let ev; try { ev = JSON.parse(e.data); } catch { return; }
+    handle(ev);
+  });
+  src.onopen = () => { retry = 0; };
+  src.onerror = () => {
+    if (src.readyState !== EventSource.CLOSED) return;
+    retry = Math.min(retry + 1, 6);
+    setTimeout(connect, retry * 2000);
+  };
+}
+
+boot();
+</script>
+</html>
