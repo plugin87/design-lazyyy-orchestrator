@@ -4,6 +4,7 @@
     "allow": [
       "Bash(python3 tools/correcter/fix_references.py:*)",
       "Bash(python3 tools/correcter/verify.py:*)",
+      "Bash(python3 tools/correcter/selftest.py:*)",
       "Bash(bash tools/build-docs.sh:*)",
       "Bash(bash tools/make-handoff.sh:*)",
       "Bash(python3 tools/gen-gantt.py:*)",

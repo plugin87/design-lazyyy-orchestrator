@@ -18,6 +18,28 @@ PROJECT = ROOT / "project"
 BUILD = PROJECT / "4-build"
 
 
+def missing(cid: str, what: str, where: str, needs: str) -> list[Claim]:
+    """ตัวตรวจที่หาของไม่เจอ คืนข้ออ้างชั้นนี้ ไม่ใช่รายการว่าง
+
+    รายการว่างอ่านเหมือน "ไม่มีปัญหา" ทั้งที่แปลว่า "ไม่ได้ตรวจ" และนั่นคือรูปแบบ
+    ที่ทำให้ประตูครึ่งหนึ่งของชุดนี้เลิกทำงานโดยไม่มีใครรู้
+    """
+    return [Claim(id=cid, text=f"ตรวจไม่ได้ — {what}", level=Level.UNVERIFIABLE,
+                  evidence=f"หาที่ {where}", needs=needs)]
+
+
+def skipped(cid: str, rule: str, key: str) -> list[Claim]:
+    """กติกาที่โครงการนี้ไม่ได้ประกาศไว้
+
+    **ต้องมาจากการที่ project.yml ไม่ได้ประกาศเท่านั้น** ห้ามมาจากไฟล์ที่หายไป
+    ไม่งั้นการลบไฟล์ทิ้งจะกลายเป็นวิธีปิดปากตัวตรวจ
+    """
+    return [Claim(id=cid, text=f"ไม่เกี่ยวกับโครงการนี้ — {rule}",
+                  level=Level.NOT_APPLICABLE,
+                  evidence=f"project.yml ไม่ได้ประกาศ {key}",
+                  needs=f"ถ้ากติกานี้ใช้กับโครงการนี้ ให้ประกาศ {key} ใน project/project.yml")]
+
+
 def _headers() -> tuple[dict, dict]:
     cur, files = {}, {}
     for f in PROJECT.rglob("*.md"):
@@ -39,14 +61,19 @@ def check_project_code_resolves() -> list[Claim]:
 
     ตัวตรวจนี้จึงมาก่อน และตกเสียงดังแทนที่จะปล่อยให้ทั้งชุดเงียบ
     """
+    # ไม่มีไฟล์เลย กับมีไฟล์แต่เขียนผิด เป็นคนละเรื่อง และต้องได้คำตัดสินคนละอย่าง
+    #
+    #   ไม่มีไฟล์     → ตรวจไม่ได้ทั้งชุด · BLOCKED
+    #   มีแต่รหัสเสีย → ข้อบกพร่องที่แก้ได้ · CORRECTED
+    #
+    # รุ่นก่อนให้ทั้งสองกรณีเป็น CONTRADICTED พร้อม fix ผลคือโปรเจกต์เปล่าได้คำตัดสิน
+    # CORRECTED ซึ่งอ่านเหมือน "เกือบผ่าน" ทั้งที่ยังไม่ได้ดูอะไรเลยสักอย่าง
+    # และมันชวนให้ orchestrator วนแก้ไปเรื่อย ๆ แทนที่จะหยุดแล้วไปหาคนมาตอบ
     if not (PROJECT / "project.yml").exists():
-        return [Claim(
-            id="CFG-01",
-            text="ไม่มี project/project.yml — ยังไม่มีความจำร่วมให้ตัวตรวจอ่าน",
-            level=Level.CONTRADICTED,
-            evidence="หาไฟล์ project/project.yml",
-            fix="/kickoff เพื่อสร้าง project.yml",
-        )]
+        return missing(
+            "CFG-01", "ไม่มี project/project.yml — ยังไม่มีความจำร่วมให้ตัวตรวจอ่าน",
+            str(PROJECT / "project.yml"),
+            "/kickoff เพื่อสัมภาษณ์แล้วสร้าง project.yml · ต้องมีคนตอบคำถาม ห้ามเดาแทน")
     c = cfg.code()
     return [Claim(
         id="CFG-01",
@@ -56,6 +83,7 @@ def check_project_code_resolves() -> list[Claim]:
               "ตัวตรวจที่หาเอกสารด้วยรหัสโครงการจะหาไม่เจอแล้วเงียบไปทั้งชุด"),
         level=Level.VERIFIED if c else Level.CONTRADICTED,
         evidence="อ่าน meta.code ใน project/project.yml",
+        checked=1 if c else None,
     )]
 
 
@@ -90,12 +118,19 @@ def check_document_consistency() -> list[Claim]:
     stale = [f.name for f in PROJECT.rglob("*.md") if "XXX" in f.read_text(encoding="utf-8")]
     bad += [f"{n} มีรหัส XXX ตกค้าง" for n in stale]
 
+    if not cur and not bad:
+        return missing(
+            "DOC-01", "ยังไม่มีเอกสารที่มีหัวควบคุมให้เทียบสักฉบับ",
+            f"{PROJECT}/**/*.md",
+            "สร้างเอกสารด้วย /doc-new <TYPE> อย่างน้อยหนึ่งฉบับ")
+
     out.append(Claim(
         id="DOC-01",
         text=f"เอกสาร {len(cur)} ฉบับอ้างฉบับปัจจุบันของกันและกัน และทะเบียนตรงกับหัวควบคุม",
         level=Level.VERIFIED if not bad else Level.CONTRADICTED,
         evidence="python3 tools/correcter/verify.py --check document_consistency",
         fix="python3 tools/correcter/fix_references.py" if bad else None,
+        checked=len(cur) if not bad else None,
     ))
     if bad:
         out[-1].text += " — พบ " + str(len(bad)) + " จุด: " + " · ".join(bad[:4])
@@ -106,8 +141,13 @@ def check_traceability() -> list[Claim]:
     """กรณีทดสอบที่ประกาศใน SRS ต้องมีเทสต์จริงที่อ้างรหัสนั้น"""
     _, files = _headers()
     srs = files.get(cfg.doc("SRS"))
-    if not srs or not BUILD.exists():
-        return []
+    if not srs:
+        return missing("TRC-01", f"ไม่พบ {cfg.doc('SRS') or 'SRS ของโครงการนี้'}",
+                       f"{PROJECT}/**/*.md",
+                       "/doc-new SRS — ตารางตรวจย้อนกลับเริ่มจากรหัส TC ที่ SRS ประกาศ")
+    if not BUILD.exists():
+        return missing("TRC-01", "ไม่มีระยะ build ให้ไล่หาเทสต์", str(BUILD),
+                       "ต้องมีโค้ดใน project/4-build/ ก่อน จึงจะไล่ได้ว่ารหัส TC มีเทสต์จริง")
     declared = set(re.findall(r"\bTC-(\d\d)\b", srs.read_text(encoding="utf-8")))
     code = ""
     for d in ("tests", "e2e"):
@@ -118,14 +158,19 @@ def check_traceability() -> list[Claim]:
                 code += p.read_text(encoding="utf-8")
             except (UnicodeDecodeError, OSError):
                 continue
-    missing = sorted(declared - set(re.findall(r"TC-(\d\d)", code)))
+    absent = sorted(declared - set(re.findall(r"TC-(\d\d)", code)))
+    if not declared:
+        return missing("TRC-01", "SRS ไม่ได้ประกาศรหัสกรณีทดสอบสักรหัส",
+                       str(srs),
+                       "เติมรหัส TC-xx ลงใน SRS — ข้อกำหนดที่ไม่มีเทสต์คือความหวัง")
     return [Claim(
         id="TRC-01",
         text=(f"กรณีทดสอบ {len(declared)} รหัสที่ประกาศใน SRS มีเทสต์จริงครบ"
-              if not missing else
-              f"ขาดเทสต์ที่อ้างรหัส: {' '.join('TC-' + m for m in missing)}"),
-        level=Level.VERIFIED if not missing else Level.CONTRADICTED,
+              if not absent else
+              f"ขาดเทสต์ที่อ้างรหัส: {' '.join('TC-' + m for m in absent)}"),
+        level=Level.VERIFIED if not absent else Level.CONTRADICTED,
         evidence="เทียบรหัส TC ใน SRS กับไฟล์ใน tests/ และ e2e/",
+        checked=len(declared) if not absent else None,
     )]
 
 
@@ -152,20 +197,39 @@ def _test_counts(output: str) -> tuple[int, int] | None:
 
 
 def check_test_suite() -> list[Claim]:
-    """รันเทสต์จริง แล้วเทียบจำนวนกับที่ QAR อ้างไว้"""
-    if not (BUILD / "package.json").exists():
-        return []
-    r = subprocess.run(["npm", "test"], cwd=BUILD, capture_output=True, text=True)
+    """รันเทสต์จริง แล้วเทียบจำนวนกับที่ QAR อ้างไว้
+
+    คำสั่งรันมาจาก `domain_rules.test_command` ใน project.yml ถ้าโครงการประกาศไว้
+    ค่าเริ่มต้นยังเป็น `npm test` เพราะเทมเพลตนี้ตั้งต้นด้วย Node — แต่โครงการที่
+    ใช้อย่างอื่นไม่ต้องมาแก้ตัวตรวจอีกต่อไป
+    """
+    cmd = (cfg.get("domain_rules.test_command") or "npm test").split()
+    if not (BUILD / "package.json").exists() and cmd[:2] == ["npm", "test"]:
+        return missing("TST-01", "ไม่มีโค้ดในระยะ build ให้รันเทสต์",
+                       str(BUILD / "package.json"),
+                       "ต้องมีโปรเจกต์ในระยะ build ก่อน หรือประกาศ "
+                       "domain_rules.test_command ถ้าไม่ได้ใช้ npm")
+    try:
+        r = subprocess.run(cmd, cwd=BUILD, capture_output=True, text=True)
+    except (FileNotFoundError, NotADirectoryError) as exc:
+        return missing("TST-01", f"รัน `{' '.join(cmd)}` ไม่ได้ — {exc}", str(BUILD),
+                       "ตรวจว่า domain_rules.test_command ถูกต้อง และ project/4-build/ มีอยู่")
     counts = _test_counts(r.stdout + r.stderr)
     if not counts:
-        return [Claim("TST-01", "รันเทสต์ไม่สำเร็จ อ่านผลไม่ได้", Level.CONTRADICTED,
-                      evidence="npm test")]
+        return [Claim("TST-01", f"รัน `{' '.join(cmd)}` แล้วอ่านผลไม่ออก", Level.CONTRADICTED,
+                      evidence=" ".join(cmd),
+                      fix="ทำให้ตัวรันเทสต์รายงานผลในรูปแบบที่ _test_counts รู้จัก "
+                          "หรือเพิ่มรูปแบบใหม่เข้าไปใน _test_counts")]
     passed, total = counts
+    if total == 0:
+        return missing("TST-01", "ชุดเทสต์รันได้แต่ไม่มีกรณีทดสอบสักกรณี", str(BUILD),
+                       "เขียนเทสต์อย่างน้อยหนึ่งกรณี — ชุดเทสต์ว่างผ่านได้เสมอ")
     out = [Claim(
         id="TST-01",
         text=f"เทสต์ผ่าน {passed} จาก {total} กรณี",
         level=Level.VERIFIED if passed == total and r.returncode == 0 else Level.CONTRADICTED,
-        evidence="npm test",
+        evidence=" ".join(cmd),
+        checked=total if passed == total and r.returncode == 0 else None,
     )]
     _, files = _headers()
     qar = files.get(cfg.doc("QAR"))
@@ -188,7 +252,8 @@ def check_gate_evidence() -> list[Claim]:
     """
     y = PROJECT / "project.yml"
     if not y.exists():
-        return []
+        return missing("GAT-01", "ไม่มี project/project.yml ให้อ่านผลประตู", str(y),
+                       "/kickoff เพื่อสร้าง project.yml")
     text = y.read_text(encoding="utf-8")
     gates, cur = [], None
     for line in text.splitlines():
@@ -216,6 +281,10 @@ def check_gate_evidence() -> list[Claim]:
                 missing_docs.append(code)
     bad = ([f"ประตู {g} ผ่านโดยไม่มีหลักฐาน" for g in naked]
            + [f"อ้างเอกสาร {c} ที่ไม่มีอยู่" for c in sorted(set(missing_docs))])
+    if not gates:
+        return missing("GAT-01", "ยังไม่มีประตูไหนถูกตรวจสักบาน",
+                       f"{y} → gates:",
+                       "/gate เพื่อตรวจประตูแรก — ประตูที่ยังไม่ถูกตรวจ ไม่ใช่ประตูที่ผ่าน")
     return [Claim(
         id="GAT-01",
         text=(f"ประตูที่ผ่าน {len(passed)} รายการมีหลักฐานครบ และเอกสารที่อ้างมีอยู่จริง"
@@ -240,49 +309,92 @@ def _editorial_content() -> dict | None:
         d = json.loads(f.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return None
-    return d if isinstance(d, dict) and "exercises" in d else None
+    key = cfg.get("domain_rules.content_items") or "items"
+    return d if isinstance(d, dict) and isinstance(d.get(key), list) else None
+
+
+def _content_key() -> str:
+    """ชื่อคีย์ของรายการเนื้อหาใน content.json · เดิมฝังคำว่า exercises ไว้ตรง ๆ"""
+    return cfg.get("domain_rules.content_items") or "items"
+
+
+def _content_word() -> str:
+    """คำเรียกของหนึ่งรายการ ใช้ในข้อความรายงาน · เดิมฝังคำว่า "ท่า" ไว้ตรง ๆ"""
+    return cfg.get("domain_rules.content_word") or "รายการ"
 
 
 def check_content_review() -> list[Claim]:
     """เนื้อหาที่ยังไม่มีผู้เชี่ยวชาญรับรอง — ตรวจด้วยเครื่องไม่ได้ตลอดกาล"""
+    where = cfg.get("domain_rules.content_file")
+    if not where:
+        return skipped("CNT-01", "โครงการนี้ไม่มีแคตตาล็อกเนื้อหาที่ต้องมีผู้เชี่ยวชาญรับรอง",
+                       "domain_rules.content_file")
     d = _editorial_content()
     if d is None:
-        return []
-    pub = [e for e in d["exercises"] if e.get("published")]
+        return missing("CNT-01", f"ประกาศ content_file ไว้ แต่อ่าน {where} ไม่ได้",
+                       str(BUILD / where),
+                       f"ไฟล์ต้องเป็น JSON ที่มีคีย์ {_content_key()} เป็นรายการ")
+    word = _content_word()
+    pub = [e for e in d[_content_key()] if e.get("published")]
     unreviewed = [e for e in pub if not e.get("reviewed_by")]
+    if not pub:
+        return missing("CNT-01", f"ยังไม่มี{word}ที่เผยแพร่ให้ตรวจการรับรอง", str(BUILD / where),
+                       f"ต้องมี{word}ที่ตั้ง published อย่างน้อยหนึ่งรายการ")
     if not unreviewed:
-        return [Claim("CNT-01", f"ท่าที่เผยแพร่ {len(pub)} ท่า ผ่านการรับรองครบ",
-                      Level.VERIFIED, evidence="ตรวจ reviewed_by ใน content.json")]
+        return [Claim("CNT-01", f"{word}ที่เผยแพร่ {len(pub)} รายการ ผ่านการรับรองครบ",
+                      Level.VERIFIED, evidence=f"ตรวจ reviewed_by ใน {where}",
+                      checked=len(pub))]
     return [Claim(
         id="CNT-01",
-        text=(f"ท่า {len(unreviewed)} จาก {len(pub)} ยังไม่มีผู้เชี่ยวชาญรับรอง — "
-              "เนื้อหาเป็นข้อมูลที่แก้ไขต่อเนื่อง จะมีท่ารอตรวจอยู่เสมอเป็นเรื่องปกติ"),
+        text=(f"{word} {len(unreviewed)} จาก {len(pub)} ยังไม่มีผู้เชี่ยวชาญรับรอง — "
+              f"เนื้อหาเป็นข้อมูลที่แก้ไขต่อเนื่อง จะมี{word}รอตรวจอยู่เสมอเป็นเรื่องปกติ"),
         level=Level.ASSERTED,
         blocks=Blocks.PUBLICATION,
         blocks_gate="G6",
         # เงื่อนไขนี้ไม่ต้องพึ่งคำตัดสินของ correcter เพราะมีกลไกบังคับอยู่แล้ว
-        enforced_by="BR-07 · npm run build ออกด้วยรหัส 1 · และ BR-08 แถบเตือนที่ปิดไม่ได้",
+        enforced_by=(cfg.get("domain_rules.publication_guard")
+                     or "ประตูเผยแพร่ที่โครงการประกาศไว้"),
     )]
+
+
+def _baseline() -> tuple[str, int, int] | None:
+    """(ชื่อตัวชี้วัด, จำนวนตัวอย่างที่วัดแล้ว, จำนวนที่ต้องการ) · None = ไม่ได้ประกาศไว้
+
+    รุ่นก่อนฝัง `G-01`, แฟ้ม `data/baseline.jsonl` และเลข 5 ไว้ในตัวอักษร ทั้งสาม
+    อย่างเป็นของโครงการหนึ่งโครงการ ไม่ใช่ของสายงาน
+    """
+    metric = cfg.get("domain_rules.outcome_metric")
+    where = cfg.get("domain_rules.baseline_file")
+    if not metric or not where:
+        return None
+    try:
+        want = int(cfg.get("domain_rules.baseline_samples") or 5)
+    except (TypeError, ValueError):
+        want = 5
+    f = BUILD / where
+    n = len(f.read_text(encoding="utf-8").strip().splitlines()) if f.exists() else 0
+    return metric, n, want
 
 
 def check_measured_metrics() -> list[Claim]:
     """ตัวชี้วัดที่ยังไม่เคยวัด — เลขคณิตถูกไม่ได้แปลว่าตัวป้อนจริง"""
-    out = []
-    baseline = BUILD / "data/baseline.jsonl"
-    n = len(baseline.read_text(encoding="utf-8").strip().splitlines()) if baseline.exists() else 0
-    if n >= 5:
-        out.append(Claim("MET-01", f"ค่าฐาน G-01 วัดแล้ว {n} ครั้ง",
-                         Level.VERIFIED, evidence="GET /api/baseline"))
-    else:
-        out.append(Claim(
-            id="MET-01",
-            text=f"ค่าฐาน G-01 มี {n} ตัวอย่าง ต้องการ 5 — ตัวเลข 180 วินาทีเป็นการสมมติ",
-            level=Level.ASSERTED,
-            blocks=Blocks.OUTCOME_CLAIM,
-            blocks_gate="G6",
-            enforced_by="OUT-01 · ห้ามเอกสารใดอ้างว่าตัวชี้วัดบรรลุแล้ว",
-        ))
-    return out
+    base = _baseline()
+    if base is None:
+        return skipped("MET-01", "โครงการนี้ไม่ได้ประกาศตัวชี้วัดผลลัพธ์กับค่าฐานของมัน",
+                       "domain_rules.outcome_metric + baseline_file")
+    metric, n, want = base
+    if n >= want:
+        return [Claim("MET-01", f"ค่าฐาน {metric} วัดแล้ว {n} ครั้ง", Level.VERIFIED,
+                      evidence=f"นับบรรทัดใน {cfg.get('domain_rules.baseline_file')}",
+                      checked=n)]
+    return [Claim(
+        id="MET-01",
+        text=f"ค่าฐาน {metric} มี {n} ตัวอย่าง ต้องการ {want} — ตัวเลขที่เขียนไว้ยังเป็นการสมมติ",
+        level=Level.ASSERTED,
+        blocks=Blocks.OUTCOME_CLAIM,
+        blocks_gate="G6",
+        enforced_by="OUT-01 · ห้ามเอกสารใดอ้างว่าตัวชี้วัดบรรลุแล้ว",
+    )]
 
 
 def check_no_premature_outcome_claim() -> list[Claim]:
@@ -293,26 +405,39 @@ def check_no_premature_outcome_claim() -> list[Claim]:
 
     ตัวตรวจนี้อ่านเอกสารทุกฉบับ หาข้อความที่อ้างว่าผลลัพธ์เกิดขึ้นแล้ว
     """
-    baseline = BUILD / "data/baseline.jsonl"
-    n = len(baseline.read_text(encoding="utf-8").strip().splitlines()) if baseline.exists() else 0
-    if n >= 5:
-        return [Claim("OUT-01", f"ค่าฐานวัดแล้ว {n} ครั้ง · การอ้างผลลัพธ์ทำได้",
-                      Level.VERIFIED, evidence="นับบรรทัดใน data/baseline.jsonl")]
+    base = _baseline()
+    if base is not None:
+        metric, n, want = base
+        if n >= want:
+            return [Claim("OUT-01", f"ค่าฐานวัดแล้ว {n} ครั้ง · การอ้างผลลัพธ์ทำได้",
+                          Level.VERIFIED,
+                          evidence=f"นับบรรทัดใน {cfg.get('domain_rules.baseline_file')}",
+                          checked=n)]
 
-    # รูปแบบข้อความที่อ้างว่าผลลัพธ์เกิดขึ้นแล้ว ทั้งที่ยังไม่มีข้อมูล
+    # รูปแบบข้อความที่อ้างว่าผลลัพธ์เกิดขึ้นแล้ว ทั้งที่ยังไม่มีข้อมูล · รูปแบบสองแถวแรก
+    # เคยฝังชื่อตัวชี้วัดกับเลข 180 ของโครงการหนึ่งไว้ ทำให้โครงการอื่นถูกตรวจไม่ครบ
+    metric_pat = re.escape(base[0]) if base else r"[A-Z]{1,3}-\d{1,2}"
     CLAIMS = [
-        r"G-0\d\s*(บรรลุ|ผ่านแล้ว|ทำได้แล้ว|ดีขึ้น)",
-        r"(ลดเวลา|ลดลง)จาก\s*180\s*วินาที\s*เหลือ\s*\d+",
+        rf"{metric_pat}\s*(บรรลุ|ผ่านแล้ว|ทำได้แล้ว|ดีขึ้น)",
+        r"(ลดเวลา|ลดลง)จาก\s*[\d.,]+\s*\S+\s*เหลือ\s*[\d.,]+",
         r"ตัวชี้วัด.{0,20}(บรรลุ|สำเร็จ)แล้ว",
         r"พิสูจน์แล้วว่า.{0,20}(ได้ผล|ดีขึ้น)",
     ]
-    hits = []
+    hits, swept = [], 0
     for f in sorted(PROJECT.rglob("*.md")):
-        text = f.read_text(encoding="utf-8")
+        try:
+            text = f.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        swept += 1
         for pat in CLAIMS:
             for m in re.finditer(pat, text):
                 hits.append(f"{f.name}: {m.group(0)[:50]}")
 
+    if not swept:
+        return missing("OUT-01", "ยังไม่มีเอกสารสักฉบับให้กวาดหาการอ้างผลลัพธ์",
+                       f"{PROJECT}/**/*.md",
+                       "สร้างเอกสารด้วย /doc-new <TYPE> — การกวาดเอกสารศูนย์ฉบับผ่านได้เสมอ")
     return [Claim(
         id="OUT-01",
         text=("ไม่มีเอกสารใดอ้างว่าตัวชี้วัดบรรลุแล้ว ขณะที่ค่าฐานยังไม่ถูกวัด"
@@ -320,55 +445,97 @@ def check_no_premature_outcome_claim() -> list[Claim]:
               "มีเอกสารอ้างว่าตัวชี้วัดบรรลุแล้ว ทั้งที่ค่าฐานยังไม่เคยวัด: " + " · ".join(hits[:3])),
         level=Level.VERIFIED if not hits else Level.CONTRADICTED,
         evidence="กวาดหาข้อความที่อ้างผลลัพธ์ในเอกสารทุกฉบับ",
+        checked=swept if not hits else None,
     )]
 
 
 def check_content_integrity() -> list[Claim]:
+    """โครงสร้างของแคตตาล็อกเนื้อหา — อ้างอิงข้ามต้องชี้ไปยังของที่มีจริง
+
+    รุ่นก่อนเขียน d["categories"] ด้วยวงเล็บเหลี่ยม ไม่ใช่ .get() ไฟล์ที่มีคีย์
+    รายการแต่ไม่มีคีย์พี่น้องจึงโยน KeyError ขึ้นมาฆ่า verify.py ทั้งตัว
+    และการไม่มีคำตัดสินเลย แย่กว่าคำตัดสินที่ตก
+    """
+    where = cfg.get("domain_rules.content_file")
+    if not where:
+        return skipped("CNT-02", "โครงการนี้ไม่มีแคตตาล็อกเนื้อหาให้ตรวจโครงสร้าง",
+                       "domain_rules.content_file")
     d = _editorial_content()
     if d is None:
-        return []
-    cats = {c["id"] for c in d["categories"]}
-    srcs = {s["id"] for s in d["sources"]}
+        return missing("CNT-02", f"ประกาศ content_file ไว้ แต่อ่าน {where} ไม่ได้",
+                       str(BUILD / where),
+                       f"ไฟล์ต้องเป็น JSON ที่มีคีย์ {_content_key()} เป็นรายการ")
+    key, word = _content_key(), _content_word()
+    items = d[key]
+    if not items:
+        return missing("CNT-02", f"แคตตาล็อกไม่มี{word}สักรายการ", str(BUILD / where),
+                       f"เพิ่ม{word}อย่างน้อยหนึ่งรายการ — แคตตาล็อกว่างถูกโครงสร้างเสมอ")
+
+    cats = {c.get("id") for c in d.get("categories", []) if isinstance(c, dict)}
+    srcs = {x.get("id") for x in d.get("sources", []) if isinstance(x, dict)}
     bad = []
-    for e in d["exercises"]:
-        if e["category_id"] not in cats:
-            bad.append(f"{e['id']} หมวดไม่มีจริง")
-        if e["source_id"] not in srcs:
-            bad.append(f"{e['id']} แหล่งอ้างอิงไม่มีจริง")
-        for i, s in enumerate(e["steps"]):
-            if s["order"] != i + 1:
-                bad.append(f"{e['id']} ลำดับขั้นตอนข้าม")
-        for m in e["media"]:
-            if not m.get("alt_text", "").strip():
-                bad.append(f"{e['id']} alt ว่าง")
-    ids = [e["id"] for e in d["exercises"]]
+    for e in items:
+        if not isinstance(e, dict):
+            bad.append(f"{word}ที่ไม่ใช่ออบเจกต์")
+            continue
+        eid = e.get("id", "?")
+        if "category_id" in e and e["category_id"] not in cats:
+            bad.append(f"{eid} หมวดไม่มีจริง")
+        if "source_id" in e and e["source_id"] not in srcs:
+            bad.append(f"{eid} แหล่งอ้างอิงไม่มีจริง")
+        for i, st in enumerate(e.get("steps", [])):
+            if isinstance(st, dict) and st.get("order") != i + 1:
+                bad.append(f"{eid} ลำดับขั้นตอนข้าม")
+        for m in e.get("media", []):
+            if isinstance(m, dict) and not str(m.get("alt_text", "")).strip():
+                bad.append(f"{eid} alt ว่าง")
+    ids = [e.get("id") for e in items if isinstance(e, dict)]
     if len(set(ids)) != len(ids):
-        bad.append("รหัสท่าซ้ำ")
+        bad.append(f"รหัส{word}ซ้ำ")
     return [Claim(
         id="CNT-02",
-        text=f"ข้อมูลเนื้อหา {len(d['exercises'])} ท่าถูกต้องตามโครงสร้าง" if not bad
+        text=f"ข้อมูลเนื้อหา {len(items)} {word}ถูกต้องตามโครงสร้าง" if not bad
              else "ข้อมูลเนื้อหาผิดโครงสร้าง: " + " · ".join(bad[:5]),
         level=Level.VERIFIED if not bad else Level.CONTRADICTED,
-        evidence="ตรวจ content.json เทียบกับ schema ใน SRS 4.2",
+        evidence=f"ตรวจ {where} เทียบกับโครงสร้างที่ SRS กำหนด",
+        checked=len(items) if not bad else None,
     )]
 
 
 def check_release_gate_enforced() -> list[Claim]:
-    """BR-07 — การสร้างงานผลิตต้องล้มเหลวเองถ้าเนื้อหายังไม่ถูกตรวจ"""
+    """การสร้างงานผลิตต้องล้มเหลวเองถ้าเนื้อหายังไม่ถูกตรวจ
+
+    ตัวตรวจนี้เป็นสิ่งที่ทำให้ CNT-01 ถูกย้ายออกจากคำตัดสินได้ · ถ้ามันเงียบ
+    การย้ายนั้นกลายเป็นการลดระดับความรุนแรงเฉย ๆ
+    """
+    where = cfg.get("domain_rules.content_file")
+    build_cmd = cfg.get("domain_rules.build_command")
+    if not where or not build_cmd:
+        return skipped("REL-01", "โครงการนี้ไม่ได้ประกาศประตูเนื้อหาที่ผูกกับการสร้างงานผลิต",
+                       "domain_rules.content_file + build_command")
     d = _editorial_content()
-    if d is None or not (BUILD / "package.json").exists():
-        return []
-    unreviewed = [e for e in d["exercises"] if e.get("published") and not e.get("reviewed_by")]
-    r = subprocess.run(["npm", "run", "build"], cwd=BUILD, capture_output=True, text=True)
+    if d is None:
+        return missing("REL-01", f"ประกาศ content_file ไว้ แต่อ่าน {where} ไม่ได้",
+                       str(BUILD / where), "แก้ไฟล์เนื้อหาให้อ่านได้ก่อน")
+    unreviewed = [e for e in d[_content_key()]
+                  if e.get("published") and not e.get("reviewed_by")]
+    try:
+        r = subprocess.run(build_cmd.split(), cwd=BUILD, capture_output=True, text=True)
+    except (FileNotFoundError, NotADirectoryError) as exc:
+        return missing("REL-01", f"รัน `{build_cmd}` ไม่ได้ — {exc}", str(BUILD),
+                       "ตรวจว่า domain_rules.build_command ถูกต้อง")
     should_fail = bool(unreviewed)
     did_fail = r.returncode != 0
     return [Claim(
-        id="BR7-01",
+        id="REL-01",
         text=("ประตูเนื้อหาปฏิเสธการสร้างงานผลิตตามที่ควร" if should_fail and did_fail
               else "การสร้างงานผลิตผ่านตามที่ควร" if not should_fail and not did_fail
-              else "ประตูเนื้อหา BR-07 ไม่ทำงานตามที่ระบุไว้"),
+              else "ประตูเนื้อหาไม่ทำงานตามที่ระบุไว้ — "
+                   + ("มีเนื้อหายังไม่ถูกตรวจ แต่การสร้างงานผลิตผ่าน" if should_fail
+                      else "เนื้อหาถูกตรวจครบ แต่การสร้างงานผลิตล้ม")),
         level=Level.VERIFIED if should_fail == did_fail else Level.CONTRADICTED,
-        evidence="npm run build แล้วดูรหัสออก",
+        evidence=f"{build_cmd} แล้วดูรหัสออก",
+        checked=1 if should_fail == did_fail else None,
     )]
 
 
@@ -444,6 +611,7 @@ def check_agent_boundaries() -> list[Claim]:
               if not bad else " · ".join(bad[:4])),
         level=Level.VERIFIED if not bad else Level.CONTRADICTED,
         evidence="อ่าน frontmatter ของทุกไฟล์ใน .claude/agents/",
+        checked=len(seen) if not bad else None,
     )]
 
 
@@ -459,9 +627,14 @@ def check_gates_can_fail() -> list[Claim]:
     """
     e2e = BUILD / "e2e"
     if not e2e.exists():
-        return []
+        return missing("GTE-01", "ไม่มีโฟลเดอร์สคริปต์ตรวจ", str(e2e),
+                       "สร้าง project/4-build/e2e/ แล้วเขียนสคริปต์ตรวจอย่างน้อยหนึ่งตัว")
+    scripts = sorted(e2e.glob("*.cjs"))
+    if not scripts:
+        return missing("GTE-01", "โฟลเดอร์สคริปต์ตรวจว่างเปล่า", str(e2e),
+                       "สคริปต์ตรวจศูนย์ไฟล์ 'ตกได้ทุกไฟล์' เสมอ — ต้องมีอย่างน้อยหนึ่งตัว")
     bad = []
-    for f in sorted(e2e.glob("*.cjs")):
+    for f in scripts:
         src = f.read_text(encoding="utf-8")
         if "process.exit" not in src and "process.exitCode" not in src:
             bad.append(f"{f.name} ไม่เคยตั้งรหัสออก — เป็นรายงาน ไม่ใช่การทดสอบ")
@@ -469,39 +642,55 @@ def check_gates_can_fail() -> list[Claim]:
             bad.append(f"{f.name} ฝังพอร์ตไว้ตายตัวโดยไม่มีทางเปลี่ยน")
     return [Claim(
         id="GTE-01",
-        text=(f"สคริปต์ตรวจใน e2e/ ทั้ง {len(list(e2e.glob('*.cjs')))} ไฟล์ มีทางที่ทำให้ตัวเองตกได้"
+        text=(f"สคริปต์ตรวจใน e2e/ ทั้ง {len(scripts)} ไฟล์ มีทางที่ทำให้ตัวเองตกได้"
               if not bad else " · ".join(bad[:4])),
         level=Level.VERIFIED if not bad else Level.CONTRADICTED,
         evidence="อ่านสคริปต์ใน e2e/ หา process.exit และพอร์ตที่ฝังตาย",
+        checked=len(scripts) if not bad else None,
     )]
 
 
 def check_health_notice() -> list[Claim]:
-    """PRD 9 · ข้อผูกพันตามกฎหมาย — คำเตือนสุขภาพต้องแสดงทุกหน้ารายละเอียด
+    """คอมโพเนนต์ที่ข้อผูกพันตามกฎหมายบังคับให้แสดงทุกหน้า ต้องยังอยู่และไม่มีเงื่อนไข
 
-    QAR F-01 พบว่า 7 จาก 30 ท่าไม่มีฟิลด์ caution จึงไม่มีคำเตือนเลยทั้งหน้า
-    ทางแก้คือคำเตือนระดับหน้าที่ไม่ผูกกับข้อมูลรายท่า · ตัวตรวจนี้เฝ้าว่ามันยังอยู่
+    ที่มาของรูปแบบนี้ — โครงการหนึ่งพบว่า 7 จาก 30 รายการไม่มีฟิลด์คำเตือน
+    หน้าเหล่านั้นจึงไม่มีคำเตือนเลย ทางแก้คือคำเตือนระดับหน้าที่ไม่ผูกกับข้อมูลรายรายการ
+    รูปแบบใช้ซ้ำได้ · ชื่อไฟล์ใช้ซ้ำไม่ได้
+
+    รุ่นก่อนฝัง HealthNotice.tsx กับ Detail.tsx ไว้ตรง ๆ และ **ไม่มีเงื่อนไขกันเลย**
+    มันจึงตกในทุกโครงการที่ไม่ใช่แอปนั้น พร้อม fix=None แปลว่าแก้ไม่ได้ตลอดกาล
     """
-    detail = BUILD / "src/screens/Detail.tsx"
-    notice = BUILD / "src/components/HealthNotice.tsx"
+    name = cfg.get("domain_rules.mandatory_component")
+    if not name:
+        return skipped("LAW-01", "โครงการนี้ไม่ได้ประกาศคอมโพเนนต์ที่กฎหมายบังคับให้แสดงทุกหน้า",
+                       "domain_rules.mandatory_component")
+    host = cfg.get("domain_rules.mandatory_component_host")
+    hits = [f for f in BUILD.rglob(f"{name}.*") if f.is_file()]
     bad = []
-    if not notice.exists():
-        bad.append("ไม่มี HealthNotice — คำเตือนสุขภาพระดับหน้าหายไป")
-    elif detail.exists():
-        d = detail.read_text(encoding="utf-8")
-        if "<HealthNotice" not in d:
-            bad.append("หน้ารายละเอียดไม่ได้แสดง HealthNotice")
-        if re.search(r"\{[^}]*caution[^}]*&&\s*<HealthNotice", d):
-            bad.append("HealthNotice ถูกผูกกับ caution — ต้องแสดงเสมอ ไม่มีเงื่อนไข")
-    test = BUILD / "tests/health-notice.test.tsx"
-    if not test.exists():
-        bad.append("ไม่มีเทสต์ที่บังคับคำเตือนสุขภาพ")
+    if not hits:
+        bad.append(f"ไม่มีคอมโพเนนต์ {name} — คำเตือนระดับหน้าหายไป")
+    elif host:
+        page = BUILD / host
+        if not page.exists():
+            bad.append(f"ไม่มีหน้า {host} ที่ประกาศไว้ว่าต้องแสดง {name}")
+        else:
+            d = page.read_text(encoding="utf-8")
+            if f"<{name}" not in d:
+                bad.append(f"{host} ไม่ได้แสดง {name}")
+            if re.search(rf"\{{[^}}]*&&\s*<{re.escape(name)}", d):
+                bad.append(f"{name} ถูกผูกกับเงื่อนไข — ต้องแสดงเสมอ")
+    tests = [f for f in BUILD.rglob("*") if f.is_file() and name.lower() in f.name.lower()
+             and (".test." in f.name or ".spec." in f.name)]
+    if not tests:
+        bad.append(f"ไม่มีเทสต์ที่บังคับ {name}")
     return [Claim(
         id="LAW-01",
-        text=("คำเตือนสุขภาพแสดงทุกหน้ารายละเอียดโดยไม่มีเงื่อนไข และมีเทสต์บังคับ"
-              if not bad else " · ".join(bad)),
+        text=(f"{name} แสดงโดยไม่มีเงื่อนไข และมีเทสต์บังคับ" if not bad else " · ".join(bad)),
         level=Level.VERIFIED if not bad else Level.CONTRADICTED,
-        evidence="ตรวจ HealthNotice ใน Detail.tsx และเทสต์ที่บังคับมัน",
+        evidence=f"หา {name} ใน project/4-build/ และเทสต์ที่อ้างชื่อมัน",
+        checked=len(hits) + len(tests) if not bad else None,
+        fix=None if not bad else f"สร้าง {name} และเทสต์ของมัน หรือถอด "
+                                f"domain_rules.mandatory_component ถ้ากติกานี้เลิกใช้แล้ว",
     )]
 
 
@@ -517,15 +706,20 @@ def check_deliverable_ownership() -> list[Claim]:
     """
     agents = ROOT / ".claude" / "agents"
     orch = ROOT / ".claude" / "skills" / "orchestrator" / "SKILL.md"
-    if not agents.exists() or not orch.exists():
-        return []
+    if not agents.exists():
+        return missing("AGT-02", "ไม่มีโฟลเดอร์นิยาม subagent", str(agents),
+                       "สร้าง .claude/agents/ — การแยกบทบาทบังคับด้วยไฟล์พวกนี้")
+    if not orch.exists():
+        return missing("AGT-02", "ไม่มี SKILL.md ของ orchestrator ที่ถือตารางระยะ", str(orch),
+                       "สร้าง .claude/skills/orchestrator/SKILL.md พร้อมตารางระยะ")
 
     block = re.search(r"\| stage \|.*?\n\n", orch.read_text(encoding="utf-8"), re.S)
     if not block:
-        return []
+        return missing("AGT-02", "SKILL.md ของ orchestrator ไม่มีตารางระยะให้อ่าน", str(orch),
+                       "ตารางต้องขึ้นต้นด้วยหัวคอลัมน์ `| stage |`")
 
     WRITE = ("Edit", "Write", "NotebookEdit")
-    bad = []
+    bad, pairs = [], 0
     for row in re.finditer(r"^\| `[a-z]+` \| ([^|]+) \| ([^|]+) \|", block.group(0), re.M):
         roles = re.findall(r"[a-z][a-z-]{3,}", row.group(1))
         # ของส่งมอบคือรหัสเอกสารตัวใหญ่ในคอลัมน์เงื่อนไขเลื่อน
@@ -536,6 +730,7 @@ def check_deliverable_ownership() -> list[Claim]:
             f = agents / f"{role}.md"
             if not f.exists():
                 continue
+            pairs += 1
             src = f.read_text(encoding="utf-8")
             tools = re.search(r"^tools: (.+)$", src.split("---")[1], re.M)
             can_write = tools and any(re.search(rf"\b{w}\b", tools.group(1)) for w in WRITE)
@@ -545,10 +740,11 @@ def check_deliverable_ownership() -> list[Claim]:
 
     return [Claim(
         id="AGT-02",
-        text=("ทุกบทบาทที่เป็นเจ้าของของส่งมอบ ผลิตมันได้ หรือระบุไว้ว่าใครผลิตให้"
-              if not bad else " · ".join(bad)),
+        text=(f"ทุกบทบาทที่เป็นเจ้าของของส่งมอบ ({pairs} คู่บทบาท-ของส่งมอบ) ผลิตมันได้ "
+              f"หรือระบุไว้ว่าใครผลิตให้" if not bad else " · ".join(bad)),
         level=Level.VERIFIED if not bad else Level.CONTRADICTED,
         evidence="เทียบตารางระยะกับ allowlist ของแต่ละ agent",
+        checked=pairs if not bad else None,
     )]
 
 
@@ -559,20 +755,34 @@ def check_metrics_measurable() -> list[Claim]:
     และมันอันตรายกว่าการไม่มีตัวชี้วัด เพราะทุกคนคิดว่ามีแล้ว
     """
     prd = _headers()[1].get(cfg.doc("PRD"))
-    agg = BUILD / "server/aggregate.mjs"
-    if not prd or not agg.exists():
-        return []
+    if not prd:
+        return missing("MET-02", f"ไม่พบ {cfg.doc('PRD') or 'PRD ของโครงการนี้'}",
+                       f"{PROJECT}/**/*.md",
+                       "/doc-new PRD — ตัวชี้วัดที่ต้องวัดได้ ประกาศอยู่ใน PRD")
+    rel = cfg.get("domain_rules.metrics_source")
+    if not rel:
+        return skipped("MET-02", "โครงการนี้ไม่ได้ประกาศว่าตัวชี้วัดถูกคำนวณจากที่ไหน",
+                       "domain_rules.metrics_source")
+    agg = BUILD / rel
+    if not agg.exists():
+        return missing("MET-02", f"ประกาศแหล่งคำนวณตัวชี้วัดไว้ แต่ไม่พบ {rel}", str(agg),
+                       f"สร้าง {rel} หรือแก้ domain_rules.metrics_source ให้ชี้ถูก")
     src = agg.read_text(encoding="utf-8")
-    reported = set(re.findall(r"(g\d\d)_", src))
-    declared = set(m.lower().replace("-", "") for m in re.findall(r"\| (G-\d\d)", prd.read_text(encoding="utf-8")))
-    missing = sorted(d for d in declared if d not in reported)
+    declared = set(re.findall(r"\|\s*([A-Z]{1,3}-\d{1,3})\s*\|", prd.read_text(encoding="utf-8")))
+    if not declared:
+        return missing("MET-02", "PRD ไม่ได้ประกาศรหัสตัวชี้วัดในตารางสักตัว", str(prd),
+                       "เติมตารางตัวชี้วัดลงใน PRD — ตัวชี้วัดที่วัดไม่ได้ ไม่ใช่ตัวชี้วัด")
+    absent = sorted(d for d in declared
+                    if d.lower().replace("-", "") not in src.lower().replace("-", ""))
     return [Claim(
         id="MET-02",
         text=(f"ตัวชี้วัดที่ประกาศ {len(declared)} ตัว คำนวณได้จากเหตุการณ์ที่เก็บจริงครบ"
-              if not missing else
-              f"ตัวชี้วัด {' '.join(m.upper().replace('G','G-') for m in missing)} ประกาศไว้ใน PRD แต่ /api/stats ไม่ได้รายงาน — วัดไม่ได้ด้วยสิ่งที่ระบบเก็บ"),
-        level=Level.VERIFIED if not missing else Level.CONTRADICTED,
-        evidence="เทียบตัวชี้วัดใน PRD หัวข้อ 4 กับผลลัพธ์ของ aggregate()",
+              if not absent else
+              f"ตัวชี้วัด {' '.join(absent)} ประกาศไว้ใน PRD แต่ {rel} ไม่ได้รายงาน — "
+              f"วัดไม่ได้ด้วยสิ่งที่ระบบเก็บ"),
+        level=Level.VERIFIED if not absent else Level.CONTRADICTED,
+        checked=len(declared) if not absent else None,
+        evidence=f"เทียบรหัสตัวชี้วัดในตารางของ PRD กับ {rel}",
     )]
 
 
@@ -636,11 +846,16 @@ def check_referenced_files_exist() -> list[Claim]:
                     continue
                 bad.append(f"{f.relative_to(ROOT)} อ้างถึง {m} ที่ไม่มีอยู่จริง")
 
+    if not checked and not bad:
+        return missing("REF-01", "ไม่พบเส้นทางไฟล์ที่ถูกอ้างถึงเลยสักรายการ",
+                       "คอมเมนต์และเอกสารใต้ project/ และ 4-build/",
+                       "ต้องมีโค้ดหรือเอกสารที่อ้างเส้นทางไฟล์ก่อน จึงจะตรวจได้ว่าอ้างถูก")
     return [Claim(
         id="REF-01",
         text=(f"เส้นทางไฟล์ {checked} รายการที่ถูกอ้างในคอมเมนต์และเอกสาร ชี้ไปยังไฟล์ที่มีอยู่จริงทั้งหมด"
               if not bad else " · ".join(sorted(bad)[:5])),
         level=Level.VERIFIED if not bad else Level.CONTRADICTED,
+        checked=checked if not bad else None,
         evidence="กวาดคอมเมนต์และเอกสาร หาเส้นทางที่มีนามสกุลรู้จัก แล้วเทียบกับระบบไฟล์",
         fix=None if not bad else "สร้างไฟล์ที่อ้างถึง หรือลบการอ้างที่ไม่จริงออก",
     )]
@@ -658,19 +873,23 @@ def check_mechanisms_have_tests() -> list[Claim]:
     ซึ่งจับกรณีที่กลไกถูกลบไปพร้อมกับเทสต์ของมัน
     การรันจริงอยู่ที่ npm run test:mutation ซึ่งเป็นด่านของมันเอง
     """
-    registry = BUILD / "tests" / "mutants.json"
-    harness = BUILD / "scripts" / "mutate.mjs"
-
-    if not registry.exists() or not harness.exists():
-        return [Claim(
-            id="MUT-01",
-            text="ไม่มีทะเบียนกลไก (tests/mutants.json) หรือสคริปต์ทดสอบการกลายพันธุ์",
-            level=Level.CONTRADICTED,
-            evidence="หาไฟล์ในระบบไฟล์",
-            fix="สร้าง tests/mutants.json และ scripts/mutate.mjs",
-        )]
-
-    mutants = json.loads(registry.read_text(encoding="utf-8"))["mutants"]
+    rel = cfg.get("domain_rules.mutation_registry")
+    if not rel:
+        return skipped("MUT-01", "โครงการนี้ไม่ได้ประกาศทะเบียนกลไกที่ต้องมีเทสต์คุ้มครอง",
+                       "domain_rules.mutation_registry")
+    registry = BUILD / rel
+    if not registry.exists():
+        return missing("MUT-01", f"ประกาศทะเบียนกลไกไว้ แต่ไม่พบ {rel}", str(registry),
+                       f"สร้าง {rel} หรือถอด domain_rules.mutation_registry ถ้าเลิกใช้แล้ว")
+    try:
+        mutants = json.loads(registry.read_text(encoding="utf-8"))["mutants"]
+    except (json.JSONDecodeError, KeyError, OSError) as exc:
+        return [Claim("MUT-01", f"อ่านทะเบียนกลไก {rel} ไม่ได้ — {exc}", Level.CONTRADICTED,
+                      evidence=str(registry),
+                      fix=f"แก้ {rel} ให้เป็น JSON ที่มีคีย์ mutants เป็นรายการ")]
+    if not mutants:
+        return missing("MUT-01", "ทะเบียนกลไกไม่มีรายการสักรายการ", str(registry),
+                       "ขึ้นทะเบียนกลไกที่ต้องมีเทสต์คุ้มครองอย่างน้อยหนึ่งอย่าง")
     stale = []
     for m in mutants:
         target = BUILD / m["file"]
@@ -679,16 +898,26 @@ def check_mechanisms_have_tests() -> list[Claim]:
         elif m["find"] not in target.read_text(encoding="utf-8"):
             stale.append(f"{m['id']} · {m['name']} — โค้ดที่ทะเบียนคุ้มครองไว้หายไปจาก {m['file']}")
 
-    pkg = json.loads((BUILD / "package.json").read_text(encoding="utf-8"))
-    if "test:mutation" not in pkg.get("scripts", {}):
-        stale.append("package.json ไม่มีคำสั่ง test:mutation — ทะเบียนมีอยู่แต่ไม่มีใครรัน")
+    # เดิมอ่าน package.json โดยไม่เช็กว่ามีอยู่ · โครงการที่มีทะเบียนแต่ไม่ใช่ Node
+    # จึงโยน FileNotFoundError ขึ้นมาฆ่า verify.py ทั้งตัว
+    runner = cfg.get("domain_rules.mutation_command") or "npm run test:mutation"
+    pkg_file = BUILD / "package.json"
+    if pkg_file.exists():
+        try:
+            pkg = json.loads(pkg_file.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pkg = {}
+        script = runner.replace("npm run ", "").strip()
+        if script and script not in pkg.get("scripts", {}):
+            stale.append(f"package.json ไม่มีคำสั่ง {script} — ทะเบียนมีอยู่แต่ไม่มีใครรัน")
 
     return [Claim(
         id="MUT-01",
         text=(f"กลไกที่ขึ้นทะเบียนไว้ {len(mutants)} อย่าง ยังอยู่ในโค้ดครบ และมีคำสั่งทดสอบการกลายพันธุ์"
               if not stale else " · ".join(stale[:4])),
         level=Level.VERIFIED if not stale else Level.CONTRADICTED,
-        evidence="เทียบ tests/mutants.json กับเนื้อไฟล์จริง และตรวจ scripts ใน package.json",
+        evidence=f"เทียบ {rel} กับเนื้อไฟล์จริง และตรวจว่ามีคำสั่งรันการกลายพันธุ์",
+        checked=len(mutants) if not stale else None,
         fix=None if not stale else "ปรับทะเบียนให้ตรงกับโค้ด หรือเอากลไกที่หายไปกลับมา",
     )]
 
@@ -728,22 +957,26 @@ def check_verdict_command_runnable() -> list[Claim]:
 
     needed = ["python3 tools/correcter/verify.py",
               "python3 tools/correcter/fix_references.py"]
-    missing = [c for c in needed if not any(c.startswith(p) for p in prefixes)]
+    absent = [c for c in needed if not any(c.startswith(p) for p in prefixes)]
     return [Claim(
         id="RUN-01",
+        checked=len(needed) if not absent else None,
         text=("คำสั่งของ correcter อยู่ใน permissions.allow · สายงานอัตโนมัติเรียกตัวตัดสินได้"
-              if not missing else
+              if not absent else
               "สายงานอัตโนมัติเรียกตัวตัดสินไม่ได้ — permissions.allow ไม่มีกฎที่ครอบคลุม "
-              + " และ ".join(missing)
+              + " และ ".join(absent)
               + " · เติม \"Bash(python3 tools/correcter/verify.py:*)\" "
                 "และ \"Bash(python3 tools/correcter/fix_references.py:*)\" "
                 "ใน .claude/settings.json — ไฟล์นี้ตัวแทนแก้เองไม่ได้ตามการออกแบบ"),
-        level=Level.VERIFIED if not missing else Level.CONTRADICTED,
+        level=Level.VERIFIED if not absent else Level.CONTRADICTED,
         evidence="เทียบคำสั่งที่ skill orchestrator สั่งให้รัน กับกฎใน .claude/settings.json",
     )]
 
 
 ALL = [
+    # ตัวกันประตูเงียบต้องมาก่อน · verify.py หยุดทั้งชุดถ้าตัวนี้ตก เพราะตัวตรวจ
+    # ครึ่งหนึ่งหาเอกสารด้วยรหัสโครงการ ถ้าอ่านรหัสไม่ได้มันจะหาไม่เจอแล้วเงียบ
+    check_project_code_resolves,
     check_document_consistency,
     check_verdict_command_runnable,
     check_agent_boundaries,
