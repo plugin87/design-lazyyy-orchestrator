@@ -1,0 +1,23 @@
+{
+  "name": "design-lazyyy",
+  "description": "A teaching pipeline for the AI Design System Bootcamp — 26 skills, 11 role subagents whose tool limits enforce the role boundaries, and a correcter that decides whether the work may stand",
+  "version": "1.0.0",
+  "author": {
+    "name": "design-lazyyy"
+  },
+  "homepage": "https://github.com/plugin87/design-lazyyy-skills",
+  "repository": "https://github.com/plugin87/design-lazyyy-skills",
+  "license": "MIT",
+  "keywords": [
+    "bootcamp",
+    "design-system",
+    "orchestrator",
+    "product-owner",
+    "quality-assurance",
+    "subagents",
+    "system-analyst",
+    "thai",
+    "verification",
+    "workflow"
+  ]
+}

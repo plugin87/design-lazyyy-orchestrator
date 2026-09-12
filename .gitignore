@@ -1,0 +1,35 @@
+# ไฟล์ระบบปฏิบัติการ
+.DS_Store
+Thumbs.db
+
+# แพ็กเกจของเครื่องมือสร้างเอกสาร — ติดตั้งใหม่ได้ด้วย
+#   npm install --prefix tools @mermaid-js/mermaid-cli
+# ขนาดหลายร้อยเมกะไบต์ ห้ามเข้า repo
+tools/node_modules/
+node_modules/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# เอกสารที่สร้างจากไฟล์ .md ด้วย  bash tools/build-docs.sh
+# เป็นไฟล์ไบนารีที่สร้างใหม่ได้ทุกเมื่อ และเปลี่ยนทุกครั้งที่ออกฉบับแก้ไข
+docs/*.pdf
+docs/*.docx
+
+# ชุดเอกสารส่งมอบ สร้างจาก docs อีกทอดหนึ่ง
+handoff/
+handoff-*/
+handoff-*.zip
+
+# ไฟล์ชั่วคราวจากการเรนเดอร์
+*.tmp
+
+# ผลลัพธ์ของนักเรียนที่ไม่ควรติดไปกับเทมเพลต — ดู CLAUDE.md
+# (ตัวไฟล์ .md ในโฟลเดอร์ project/ ให้ commit ตามปกติ)
+project/**/*.pdf
+project/**/*.docx
+
+# เหตุการณ์สดของ mission control — เกิดใหม่ทุกครั้งที่รัน
+# (.monitor/sample-run.jsonl ให้ commit ไว้ เพราะใช้สอนตอนไม่มี session)
+.monitor/events.jsonl

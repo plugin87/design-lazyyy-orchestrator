@@ -1,0 +1,11 @@
+{
+  "name": "design-lazyyy-monitor",
+  "private": true,
+  "type": "module",
+  "description": "Mission control — watch the pipeline's agents work in real time",
+  "scripts": {
+    "start": "node server.mjs",
+    "demo": "node server.mjs --replay .monitor/sample-run.jsonl --speed 1.6",
+    "selftest": "python3 emit.py --selftest"
+  }
+}

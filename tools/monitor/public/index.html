@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="th">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mission Control · design-lazyyy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="room.css">
+
+<div id="stage">
+  <div id="room">
+    <div id="floorglow"></div>
+    <div id="core" title="orchestrator">
+      <div class="ring"></div><div class="ring r2"></div>
+      <div class="crest"></div>
+      <b>ORCHESTRATOR</b>
+      <u id="core-doing"></u>
+    </div>
+    <svg id="wires" aria-hidden="true"></svg>
+    <div id="cast"></div>
+  </div>
+
+  <header id="hud">
+    <div class="brand">
+      <strong>MISSION CONTROL</strong>
+      <span id="projname"></span>
+    </div>
+    <div class="rail">
+      <div class="stages" id="stages"></div>
+      <div id="progress" hidden>
+        <div class="bar"><i></i></div>
+        <span class="pct">0%</span>
+        <span class="what"></span>
+      </div>
+    </div>
+    <div class="gates" id="gates"></div>
+    <button id="audio" class="chip" aria-pressed="false" title="เปิด/ปิดเสียง">♪ เสียง</button>
+    <div id="mode" class="chip">—</div>
+  </header>
+
+  <div id="control">
+    <div class="group" id="tabs" aria-label="โปรเจกต์ที่กำลังทำ"></div>
+    <div class="sep"></div>
+    <div class="group transport">
+      <button id="c-restart" title="เริ่มใหม่ตั้งแต่ต้น" aria-label="เริ่มใหม่">⏮</button>
+      <button id="c-play" title="เล่น / หยุดชั่วคราว" aria-label="เล่น">⏸</button>
+      <div class="speeds" role="group" aria-label="ความเร็ว">
+        <button data-speed="0.5">½×</button>
+        <button data-speed="1" class="on">1×</button>
+        <button data-speed="2">2×</button>
+      </div>
+    </div>
+    <div class="sep"></div>
+    <div class="group">
+      <button id="c-run" class="go">▶ สั่งสายงานทำงาน</button>
+      <button id="c-stop" class="stop" hidden>■ หยุด</button>
+    </div>
+  </div>
+
+  <div id="score">
+    <div><b id="sxp">0</b><span>XP รวม</span></div>
+    <div><b id="slv">1</b><span>เลเวลทีม</span></div>
+    <div id="streakbox"><b id="sst">0</b><span>ผ่านติดกัน</span></div>
+    <div><b id="sac">0</b><span>ลงมือ (ครั้ง)</span></div>
+  </div>
+
+  <div id="quests">
+    <h2>ภารกิจ · ด่านตรวจ</h2>
+    <ul id="qlist"></ul>
+  </div>
+
+  <div id="toasts"></div>
+
+  <section id="chat" class="min" aria-label="สั่งงานทีม">
+    <header>
+      <b>สั่งงานทีม</b>
+      <span class="grow"></span>
+      <button id="chat-new" title="เริ่มบทสนทนาใหม่">ใหม่</button>
+      <button id="chat-min" title="ย่อ/ขยาย" aria-expanded="false">+</button>
+    </header>
+    <div id="chat-log" aria-live="polite"></div>
+    <form id="chat-form">
+      <textarea id="chat-in" rows="2" placeholder="พิมพ์โจทย์หรือคำสั่ง แล้วกด Enter&#10;/kickoff เพื่อตั้งโปรเจกต์ใหม่ · Shift+Enter ขึ้นบรรทัด"></textarea>
+      <button type="submit" id="chat-send">ส่ง</button>
+    </form>
+  </section>
+  <div id="brief"></div>
+
+  <section id="feed" aria-live="polite"></section>
+  <div id="dock"></div>
+
+  <aside id="verdict">
+    <em>correcter</em>
+    <strong id="vword">ยังไม่ตัดสิน</strong>
+    <span id="vnote">ยังไม่ได้ตรวจในรอบนี้</span>
+  </aside>
+
+  <div id="splash">
+    <div class="sheet">
+      <h1>MISSION CONTROL</h1>
+      <p class="lede">ตัวละครแต่ละตัวคือ agent หนึ่งตำแหน่งในสายงาน<br>
+         ทุกอย่างที่ขยับบนจอ มาจากสิ่งที่เกิดขึ้นจริงใน Claude Code</p>
+
+      <div id="ws">
+        <span class="lbl">โฟลเดอร์เก็บงาน</span>
+        <code id="ws-path">—</code>
+        <button type="button" id="ws-pick" class="ghost tiny">เลือกโฟลเดอร์…</button>
+      </div>
+
+      <div id="pick">
+        <h2>เลือกโปรเจกต์</h2>
+        <div id="pick-list"></div>
+        <button id="pick-new" class="ghost">+ เปิดโปรเจกต์ใหม่</button>
+      </div>
+
+      <form id="newproj" hidden>
+        <h2>เปิดโปรเจกต์ใหม่</h2>
+        <label>ชื่อโครงการ
+          <input name="name" required placeholder="เช่น แอปจดการบ้าน" autocomplete="off">
+        </label>
+        <label>รหัสสามตัวอักษร
+          <input name="code" required maxlength="6" placeholder="HWK" autocomplete="off"
+                 pattern="[A-Za-z0-9]{2,6}" style="text-transform:uppercase">
+        </label>
+        <label>ปัญหาในหนึ่งประโยค — เขียนเป็นปัญหา ไม่ใช่วิธีแก้
+          <textarea name="problem" rows="2" placeholder="นักเรียนลืมว่ามีการบ้านอะไรต้องส่งวันไหน เลยส่งไม่ทัน"></textarea>
+        </label>
+        <label>ใครเจอปัญหานี้ — เจาะจงกว่าคำว่า "ผู้ใช้"
+          <input name="users" placeholder="นักเรียนมัธยมปลาย" autocomplete="off">
+        </label>
+        <label>วันนี้เขาทำยังไง เมื่อยังไม่มีของชิ้นนี้
+          <input name="today" placeholder="จดใส่กระดาษ หรือถามเพื่อนในไลน์" autocomplete="off">
+        </label>
+        <label>มีเวลากี่วันทำงาน
+          <input name="days" placeholder="45 วันทำงาน" autocomplete="off">
+        </label>
+
+        <div class="stack">
+          <label>เฟรมเวิร์ก
+            <select name="framework">
+              <option value="">ยังไม่ตัดสินใจ</option>
+              <option>Next.js</option>
+              <option>Nuxt (Vue)</option>
+              <option>React + Vite</option>
+              <option>SvelteKit</option>
+              <option>Astro</option>
+              <option value="ไม่ใช้เฟรมเวิร์ก · HTML/CSS/JS ล้วน">HTML/CSS/JS ล้วน</option>
+            </select>
+          </label>
+          <label>สไตล์
+            <select name="styling">
+              <option value="">ยังไม่ตัดสินใจ</option>
+              <option>Tailwind CSS</option>
+              <option>CSS Modules</option>
+              <option>styled-components</option>
+              <option>shadcn/ui</option>
+              <option value="CSS ล้วน">CSS ล้วน</option>
+            </select>
+          </label>
+          <label>ฐานข้อมูล
+            <select name="database">
+              <option value="">ยังไม่ตัดสินใจ</option>
+              <option>PostgreSQL</option>
+              <option>MySQL</option>
+              <option>SQLite</option>
+              <option>MongoDB</option>
+              <option>Supabase</option>
+              <option value="ไม่มีฐานข้อมูล · ไฟล์ JSON สถิตย์">ไม่มี · JSON สถิตย์</option>
+            </select>
+          </label>
+        </div>
+        <div class="gitrow">
+          <label>เก็บโค้ดด้วย git
+            <select name="git">
+              <option value="">ยังไม่ใช้ git</option>
+              <option value="init" selected>สร้าง repo ใหม่ในโฟลเดอร์นี้</option>
+              <option value="remote">สร้างใหม่ แล้วเชื่อม remote</option>
+            </select>
+          </label>
+          <label id="remote-wrap" hidden>ที่อยู่ remote
+            <input name="remote" placeholder="git@github.com:you/homework-app.git" autocomplete="off">
+          </label>
+        </div>
+
+        <p class="hint">ช่องที่เว้นไว้จะถูกบันทึกเป็น <b>TBD</b> และขึ้นเป็นคำถามค้าง — ระบบจะไม่เดาแทนคุณ</p>
+        <div class="row">
+          <button type="button" id="np-cancel" class="ghost">ย้อนกลับ</button>
+          <button type="submit" id="np-go">เปิดโครงการ</button>
+        </div>
+        <p id="np-err" class="err" hidden></p>
+      </form>
+
+      <small>เข้าห้องแล้วกด ♪ ถ้าอยากเปิดเสียง</small>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="app.js"></script>
+</html>

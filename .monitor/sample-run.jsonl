@@ -1,0 +1,59 @@
+{"ts": 1757600083.4, "kind": "note", "session": "demo", "text": "บันทึกสาธิต — สร้างจากประวัติจริงของโครงการ WKO ไม่ใช่การดักจับสด"}
+{"ts": 1757600000.0, "session": "demo", "kind": "session_start"}
+{"ts": 1757600001.2, "session": "demo", "kind": "prompt", "text": "ทำให้จบเลย — รันทั้งสายงาน"}
+{"ts": 1757600002.8, "session": "demo", "kind": "agent_start", "agent": "product-owner", "agent_id": "sub-product-owner"}
+{"ts": 1757600004.3, "session": "demo", "kind": "tool", "agent": "product-owner", "tool": "Write", "ok": true, "path": "project/1-product/PRD-WKO-001.md"}
+{"ts": 1757600005.8, "session": "demo", "kind": "tool", "agent": "product-owner", "tool": "Edit", "ok": true, "path": "project/1-product/PRD-WKO-001.md"}
+{"ts": 1757600007.3, "session": "demo", "kind": "tool", "agent": "product-owner", "tool": "Edit", "ok": true, "path": "project/REGISTER.md"}
+{"ts": 1757600008.7, "session": "demo", "kind": "agent_stop", "agent": "product-owner", "agent_id": "sub-product-owner", "text": "PRD ฉบับ 01 · US-01 ถึง US-05 · เกณฑ์ยอมรับ 34 ข้อ"}
+{"ts": 1757600010.0, "session": "demo", "kind": "tool", "tool": "Bash", "ok": true, "text": "python3 tools/correcter/verify.py", "verdict": "PASS"}
+{"ts": 1757600011.6, "session": "demo", "kind": "agent_start", "agent": "project-manager", "agent_id": "sub-project-manager"}
+{"ts": 1757600013.1, "session": "demo", "kind": "tool", "agent": "project-manager", "tool": "Write", "ok": true, "path": "project/1-product/EST-WKO-001.md"}
+{"ts": 1757600014.6, "session": "demo", "kind": "tool", "agent": "project-manager", "tool": "Write", "ok": true, "path": "project/1-product/WBS-WKO-001.md"}
+{"ts": 1757600016.1, "session": "demo", "kind": "tool", "agent": "project-manager", "tool": "Write", "ok": true, "path": "project/1-product/SCH-WKO-001.md"}
+{"ts": 1757600017.5, "session": "demo", "kind": "agent_stop", "agent": "project-manager", "agent_id": "sub-project-manager", "text": "ประมาณ 45 วันทำงาน แตกเป็น 7 ก้อน"}
+{"ts": 1757600018.8, "session": "demo", "kind": "tool", "tool": "Bash", "ok": true, "text": "python3 tools/correcter/verify.py", "verdict": "PASS"}
+{"ts": 1757600020.4, "session": "demo", "kind": "agent_start", "agent": "system-analyst", "agent_id": "sub-system-analyst"}
+{"ts": 1757600021.9, "session": "demo", "kind": "tool", "agent": "system-analyst", "tool": "Write", "ok": true, "path": "project/2-analysis/SRS-WKO-001.md"}
+{"ts": 1757600023.4, "session": "demo", "kind": "tool", "agent": "system-analyst", "tool": "Edit", "ok": true, "path": "project/2-analysis/SRS-WKO-001.md"}
+{"ts": 1757600024.8, "session": "demo", "kind": "agent_stop", "agent": "system-analyst", "agent_id": "sub-system-analyst", "text": "SRS ฉบับ 01 — ยังไม่มีบัญชีข้อผิดพลาด"}
+{"ts": 1757600026.1, "session": "demo", "kind": "tool", "tool": "Bash", "ok": true, "text": "python3 tools/correcter/verify.py", "verdict": "CORRECTED"}
+{"ts": 1757600027.7, "session": "demo", "kind": "agent_start", "agent": "system-analyst", "agent_id": "sub-system-analyst"}
+{"ts": 1757600029.2, "session": "demo", "kind": "tool", "agent": "system-analyst", "tool": "Edit", "ok": true, "path": "project/2-analysis/SRS-WKO-001.md"}
+{"ts": 1757600030.7, "session": "demo", "kind": "tool", "agent": "system-analyst", "tool": "Write", "ok": true, "path": "project/2-analysis/CR-WKO-002.md"}
+{"ts": 1757600032.1, "session": "demo", "kind": "agent_stop", "agent": "system-analyst", "agent_id": "sub-system-analyst", "text": "SRS ฉบับ 02 · TC-01 ถึง TC-19 · ตรวจย้อนกลับสองทาง"}
+{"ts": 1757600033.4, "session": "demo", "kind": "tool", "tool": "Bash", "ok": true, "text": "python3 tools/correcter/verify.py", "verdict": "PASS"}
+{"ts": 1757600035.0, "session": "demo", "kind": "agent_start", "agent": "full-stack-design", "agent_id": "sub-full-stack-design"}
+{"ts": 1757600036.5, "session": "demo", "kind": "tool", "agent": "full-stack-design", "tool": "Write", "ok": true, "path": "project/3-design/DSN-WKO-001.md"}
+{"ts": 1757600038.0, "session": "demo", "kind": "tool", "agent": "full-stack-design", "tool": "Edit", "ok": true, "path": "project/3-design/DSN-WKO-001.md"}
+{"ts": 1757600039.4, "session": "demo", "kind": "agent_stop", "agent": "full-stack-design", "agent_id": "sub-full-stack-design", "text": "โทเคน 4 กลุ่ม · ความต่างสีต่ำสุด 6.21:1"}
+{"ts": 1757600040.7, "session": "demo", "kind": "tool", "tool": "Bash", "ok": true, "text": "python3 tools/correcter/verify.py", "verdict": "PASS"}
+{"ts": 1757600042.3, "session": "demo", "kind": "agent_start", "agent": "developer", "agent_id": "sub-developer"}
+{"ts": 1757600043.8, "session": "demo", "kind": "tool", "agent": "developer", "tool": "Write", "ok": true, "path": "project/4-build/src/screens/Detail.tsx"}
+{"ts": 1757600045.3, "session": "demo", "kind": "tool", "agent": "developer", "tool": "Write", "ok": true, "path": "project/4-build/src/lib/search.ts"}
+{"ts": 1757600046.8, "session": "demo", "kind": "tool", "agent": "developer", "tool": "Write", "ok": true, "path": "project/4-build/src/components/HealthNotice.tsx"}
+{"ts": 1757600048.3, "session": "demo", "kind": "tool", "agent": "developer", "tool": "Bash", "ok": true, "text": "npm test"}
+{"ts": 1757600049.7, "session": "demo", "kind": "agent_stop", "agent": "developer", "agent_id": "sub-developer", "text": "หน้าจอครบ 5 หน้า · 71 กรณีทดสอบผ่าน"}
+{"ts": 1757600051.3, "session": "demo", "kind": "agent_start", "agent": "developer", "agent_id": "sub-developer"}
+{"ts": 1757600052.8, "session": "demo", "kind": "tool", "agent": "developer", "tool": "Write", "ok": true, "path": "project/4-build/server/index.mjs"}
+{"ts": 1757600054.3, "session": "demo", "kind": "tool", "agent": "developer", "tool": "Write", "ok": true, "path": "project/4-build/server/aggregate.mjs"}
+{"ts": 1757600055.8, "session": "demo", "kind": "tool", "agent": "developer", "tool": "Bash", "ok": true, "text": "npm run test:e2e"}
+{"ts": 1757600057.2, "session": "demo", "kind": "agent_stop", "agent": "developer", "agent_id": "sub-developer", "text": "ปลายทางสถิติพร้อม · รวมยอดได้"}
+{"ts": 1757600058.5, "session": "demo", "kind": "tool", "tool": "Bash", "ok": true, "text": "python3 tools/correcter/verify.py", "verdict": "PASS"}
+{"ts": 1757600060.1, "session": "demo", "kind": "agent_start", "agent": "code-reviewer", "agent_id": "sub-code-reviewer"}
+{"ts": 1757600061.6, "session": "demo", "kind": "tool", "agent": "code-reviewer", "tool": "Write", "ok": true, "path": "project/5-quality/RVW-WKO-001.md"}
+{"ts": 1757600063.0, "session": "demo", "kind": "agent_stop", "agent": "code-reviewer", "agent_id": "sub-code-reviewer", "text": "ไม่มี BLOCKER · MAJOR ห้าข้อแก้แล้ว · APPROVE"}
+{"ts": 1757600064.3, "session": "demo", "kind": "tool", "tool": "Bash", "ok": true, "text": "python3 tools/correcter/verify.py", "verdict": "PASS"}
+{"ts": 1757600065.9, "session": "demo", "kind": "agent_start", "agent": "quality-assurance", "agent_id": "sub-quality-assurance"}
+{"ts": 1757600067.4, "session": "demo", "kind": "tool", "agent": "quality-assurance", "tool": "Bash", "ok": true, "text": "npm run test:a11y"}
+{"ts": 1757600068.9, "session": "demo", "kind": "tool", "agent": "quality-assurance", "tool": "Bash", "ok": true, "text": "npm run test:contrast"}
+{"ts": 1757600070.4, "session": "demo", "kind": "tool", "agent": "quality-assurance", "tool": "Write", "ok": true, "path": "project/5-quality/QAR-WKO-001.md"}
+{"ts": 1757600071.8, "session": "demo", "kind": "agent_stop", "agent": "quality-assurance", "agent_id": "sub-quality-assurance", "text": "PASS WITH ADVISORIES · axe 7 หน้าสะอาด"}
+{"ts": 1757600073.1, "session": "demo", "kind": "tool", "tool": "Bash", "ok": true, "text": "python3 tools/correcter/verify.py", "verdict": "PASS"}
+{"ts": 1757600074.7, "session": "demo", "kind": "agent_start", "agent": "devops-release", "agent_id": "sub-devops-release"}
+{"ts": 1757600076.2, "session": "demo", "kind": "tool", "agent": "devops-release", "tool": "Bash", "ok": true, "text": "npm run test:rollback"}
+{"ts": 1757600077.7, "session": "demo", "kind": "tool", "agent": "devops-release", "tool": "Write", "ok": true, "path": "project/6-release/REL-WKO-001.md"}
+{"ts": 1757600079.1, "session": "demo", "kind": "agent_stop", "agent": "devops-release", "agent_id": "sub-devops-release", "text": "ซ้อมถอยกลับ 0.024 วินาที · ปล่อยสภาพแวดล้อมสาธิต"}
+{"ts": 1757600080.4, "session": "demo", "kind": "tool", "tool": "Bash", "ok": true, "text": "python3 tools/correcter/verify.py", "verdict": "PASS"}
+{"ts": 1757600082.4, "session": "demo", "kind": "turn_end"}
+{"ts": 1757600084.8, "session": "demo", "kind": "standing", "text": "ปล่อยสภาพแวดล้อมสาธิตได้แล้ว · ก่อนปล่อยสู่ผู้ใช้จริงเหลือ 3 ข้อที่ต้องใช้คน"}

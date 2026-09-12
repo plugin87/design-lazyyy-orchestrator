@@ -1,0 +1,51 @@
+Use your built-in image_gen tool (gpt-image-2) to create EIGHT separate images
+and save them to these exact paths:
+
+/Users/plug/Development/design-lazyyy/skills/tools/monitor/public/art/full-experience-architect.png
+/Users/plug/Development/design-lazyyy/skills/tools/monitor/public/art/full-time-marshal.png
+/Users/plug/Development/design-lazyyy/skills/tools/monitor/public/art/full-the-visionary.png
+/Users/plug/Development/design-lazyyy/skills/tools/monitor/public/art/full-systems-sage.png
+/Users/plug/Development/design-lazyyy/skills/tools/monitor/public/art/full-bug-hunter.png
+/Users/plug/Development/design-lazyyy/skills/tools/monitor/public/art/full-the-interface.png
+/Users/plug/Development/design-lazyyy/skills/tools/monitor/public/art/full-the-core.png
+/Users/plug/Development/design-lazyyy/skills/tools/monitor/public/art/full-the-orchestrator.png
+
+Style reference for faces, costumes and colour identity:
+/Users/plug/Development/design-lazyyy/skills/tools/monitor/public/art/crew-sheet.png
+(that sheet shows the same eight characters from the chest up, in the same order
+as the list below — match each face, hair and costume closely).
+
+RULES THAT APPLY TO ALL EIGHT — these matter more than any single detail:
+- FULL BODY, head to feet. Feet must be fully visible and flat on the ground.
+- Standing straight, relaxed neutral stance, arms at sides or lightly bent.
+  Front-facing three-quarter view. Same pose for all eight.
+- FLAT CHROMA-KEY GREEN background (#00B140), completely flat and empty. No
+  floor, no shadow, no glow spill, no props, no text, no logos, no frame.
+  (Afterwards run scripts/remove_chroma_key.py on each file to get real alpha.)
+- The character must not touch the image edges — leave a clear white margin.
+- Identical framing across all eight: character height about 85% of the image
+  height, centred, so the eight line up as a matched set.
+- Portrait aspect ratio 1024x1536, Pixar-style 3D cartoon, clean crisp edges,
+  bright even lighting so the silhouette separates cleanly from the white.
+
+THE EIGHT CHARACTERS, in order:
+1. full-experience-architect — young man, dark curly hair, glowing blue AR
+   visor glasses, navy-black techwear bodysuit with cyan circuit lines,
+   holding a slim stylus. Cyan accent.
+2. full-time-marshal — young man, neat dark hair, ornate gold and bronze
+   armour with a compass emblem on the chest, warm gold accent.
+3. full-the-visionary — young man, wavy brown hair, deep purple cape over
+   dark purple and silver armour with a gold emblem. Purple accent.
+4. full-systems-sage — young man, light grey-brown swept hair, blue AR
+   glasses, black technical jacket with blue circuit lines. Blue accent.
+5. full-bug-hunter — young woman, dark hair in a high ponytail, green goggles
+   pushed up, green and black tactical suit, holding a slim capture net.
+   Green accent.
+6. full-the-interface — young woman, black hair with magenta streaks in a
+   ponytail, magenta and purple tech jacket. Magenta accent.
+7. full-the-core — young man, dark hair, black and green tech armour with a
+   glowing green core on the chest. Emerald accent.
+8. full-the-orchestrator — young man, navy blazer over a white tee, holding a
+   tablet at his side. Steel blue accent.
+
+Generate all eight. Do not stop after the first one. Report each saved path.

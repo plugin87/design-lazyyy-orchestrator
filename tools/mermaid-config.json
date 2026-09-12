@@ -1,0 +1,35 @@
+{
+  "theme": "neutral",
+  "themeVariables": {
+    "fontFamily": "Sarabun, TH Sarabun New, TH SarabunPSK, sans-serif",
+    "fontSize": "15px",
+    "primaryColor": "#f4f4f4",
+    "primaryTextColor": "#000000",
+    "primaryBorderColor": "#000000",
+    "lineColor": "#000000",
+    "textColor": "#000000",
+    "mainBkg": "#f4f4f4",
+    "nodeBorder": "#000000",
+    "clusterBkg": "#fafafa",
+    "clusterBorder": "#000000",
+    "edgeLabelBackground": "#ffffff"
+  },
+  "flowchart": {
+    "useMaxWidth": false,
+    "htmlLabels": true,
+    "curve": "linear",
+    "nodeSpacing": 40,
+    "rankSpacing": 45,
+    "padding": 12
+  },
+  "sequence": {
+    "useMaxWidth": false,
+    "actorFontFamily": "Sarabun, sans-serif",
+    "noteFontFamily": "Sarabun, sans-serif",
+    "messageFontFamily": "Sarabun, sans-serif"
+  },
+  "er": {
+    "useMaxWidth": false,
+    "fontSize": 14
+  }
+}

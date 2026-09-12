@@ -1,0 +1,343 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Mission Control — prototype</title>
+<style>
+  :root{
+    --ink:#E8EEF8; --dim:#8FA3BF; --line:rgba(125,211,252,.25);
+    --panel:rgba(9,16,30,.82);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:#05070E; color:var(--ink); overflow:hidden;
+    font-family:"IBM Plex Sans Thai","Sarabun",system-ui,-apple-system,sans-serif;
+  }
+  #room{
+    position:relative; width:100vw; height:100vh;
+    background:url(art/room-bg.png) center/cover no-repeat;
+  }
+  #room::after{content:""; position:absolute; inset:0; background:
+    radial-gradient(ellipse at 50% 55%, transparent 30%, rgba(3,6,14,.55) 100%);
+    pointer-events:none}
+
+  /* ── ตัวละคร ───────────────────────────────────────────── */
+  .actor{
+    position:absolute; width:150px; height:180px; margin:-150px 0 0 -75px;
+    transition:left 2.2s cubic-bezier(.45,.05,.35,1), top 2.2s cubic-bezier(.45,.05,.35,1);
+    z-index:5;
+  }
+  .actor .body{
+    position:absolute; inset:0;
+    background-size:cover; background-position:center 8%;
+    clip-path:circle(46% at 50% 38%);
+    filter:brightness(.55) saturate(.7) drop-shadow(0 0 0 transparent);
+    transition:filter .45s ease, transform .45s ease;
+    transform-origin:50% 92%;
+  }
+  .actor.awake .body{filter:brightness(1.06) saturate(1.12)}
+  .actor.awake{z-index:9}
+
+  /* เดิน — ย่ำเท้า เอียงตัว และเงาที่ยุบตาม */
+  @keyframes step{
+    0%  {transform:translateY(0)    rotate(-3.5deg) scaleY(1)}
+    25% {transform:translateY(-13px) rotate(0deg)   scaleY(1.03)}
+    50% {transform:translateY(0)    rotate(3.5deg)  scaleY(.97)}
+    75% {transform:translateY(-13px) rotate(0deg)   scaleY(1.03)}
+    100%{transform:translateY(0)    rotate(-3.5deg) scaleY(1)}
+  }
+  @keyframes breathe{
+    0%,100%{transform:translateY(0)}
+    50%    {transform:translateY(-5px)}
+  }
+  @keyframes shadowstep{
+    0%,50%,100%{transform:translateX(-50%) scaleX(1)   ; opacity:.5}
+    25%,75%    {transform:translateX(-50%) scaleX(.72) ; opacity:.28}
+  }
+  .actor.walking .body{animation:step .62s linear infinite}
+  .actor.awake:not(.walking) .body{animation:breathe 3.1s ease-in-out infinite}
+  .actor.working .body{animation:breathe 1.15s ease-in-out infinite}
+
+  .shadow{
+    position:absolute; left:50%; bottom:-6px; width:96px; height:17px;
+    transform:translateX(-50%); border-radius:50%; opacity:.32;
+    background:radial-gradient(ellipse,rgba(0,0,0,.85),transparent 72%);
+  }
+  .actor.walking .shadow{animation:shadowstep .62s linear infinite}
+
+  .plate{
+    position:absolute; left:50%; bottom:-40px; transform:translateX(-50%);
+    white-space:nowrap; padding:3px 11px; border-radius:3px;
+    background:var(--panel); border:1px solid var(--tint);
+    font-size:9.5px; letter-spacing:.13em; font-weight:700;
+    color:var(--tint); text-transform:uppercase;
+    opacity:.45; transition:opacity .4s ease;
+  }
+  .actor.awake .plate{opacity:1; box-shadow:0 0 18px -4px var(--tint)}
+  .plate small{display:block; letter-spacing:0; text-transform:none;
+    font-size:10px; color:var(--ink); opacity:.85; font-weight:400}
+
+  /* ── บอลลูนคำพูด ──────────────────────────────────────── */
+  .bubble{
+    position:absolute; left:50%; top:-30px; transform:translate(-50%,6px);
+    white-space:nowrap; max-width:330px; overflow:hidden; text-overflow:ellipsis;
+    padding:7px 13px; border-radius:13px 13px 13px 3px;
+    background:rgba(11,20,36,.95); border:1px solid var(--tint);
+    font-size:12.5px; color:var(--ink); pointer-events:none;
+    opacity:0; transition:opacity .3s ease, transform .3s ease;
+    box-shadow:0 6px 26px -8px #000;
+  }
+  .bubble.show{opacity:1; transform:translate(-50%,0)}
+
+  /* แถบความคืบหน้า — นับการกระทำจริง ไม่ใช่เปอร์เซ็นต์ที่คิดขึ้น */
+  .meter{
+    position:absolute; left:50%; bottom:-56px; transform:translateX(-50%);
+    width:104px; height:3px; border-radius:2px; background:rgba(255,255,255,.13);
+    opacity:0; transition:opacity .3s
+  }
+  .actor.working .meter{opacity:1}
+  .meter i{display:block; height:100%; width:35%; border-radius:2px;
+    background:var(--tint); box-shadow:0 0 9px var(--tint);
+    animation:slide 1.25s ease-in-out infinite}
+  @keyframes slide{0%{margin-left:0}50%{margin-left:65%}100%{margin-left:0}}
+
+  /* ── วงกลางห้อง = orchestrator ────────────────────────── */
+  #core{
+    position:absolute; left:50%; top:53%; width:110px; height:110px;
+    margin:-55px 0 0 -55px; border-radius:50%; z-index:3;
+    border:1px solid rgba(125,211,252,.45);
+    box-shadow:0 0 44px -6px rgba(125,211,252,.5), inset 0 0 30px rgba(125,211,252,.16);
+    animation:pulse 3.4s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{transform:scale(1);opacity:.75}50%{transform:scale(1.09);opacity:1}}
+  #core b{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    font-size:9px; letter-spacing:.2em; color:#7DD3FC; font-weight:700}
+
+  /* ลำแสงสั่งงาน */
+  .beam{position:absolute; height:2px; transform-origin:0 50%; z-index:4;
+    background:linear-gradient(90deg,transparent,var(--tint),transparent);
+    opacity:0; pointer-events:none}
+  .beam.fire{animation:fire .85s ease-out}
+  @keyframes fire{0%{opacity:0;filter:blur(3px)}35%{opacity:1}100%{opacity:0}}
+
+  /* ── แผงบน ────────────────────────────────────────────── */
+  #top{position:absolute; top:0; left:0; right:0; z-index:20;
+    padding:13px 20px; display:flex; gap:26px; align-items:center;
+    background:linear-gradient(180deg,rgba(4,8,16,.94),transparent)}
+  #top h1{margin:0; font-size:12.5px; letter-spacing:.2em; font-weight:700; color:#7DD3FC}
+  #top h1 span{display:block; font-size:10px; letter-spacing:0; color:var(--dim); font-weight:400}
+  .stages{display:flex; gap:5px; flex:1}
+  .stages div{flex:1; height:5px; border-radius:3px; background:rgba(255,255,255,.1);
+    position:relative; transition:background .5s, box-shadow .5s}
+  .stages div.done{background:#34D399; box-shadow:0 0 10px -1px #34D399}
+  .stages div.now{background:#F0B429; box-shadow:0 0 13px #F0B429}
+  .stages div b{position:absolute; top:9px; left:0; font-size:8.5px;
+    letter-spacing:.09em; color:var(--dim); font-weight:400; text-transform:uppercase}
+  .gates{display:flex; gap:6px}
+  .gates i{width:26px; height:20px; border-radius:3px; font-style:normal;
+    font-size:9px; font-weight:700; display:grid; place-items:center;
+    background:rgba(255,255,255,.07); color:var(--dim); border:1px solid transparent;
+    transition:all .4s}
+  .gates i.pass{background:rgba(52,211,153,.17); color:#34D399; border-color:#34D399}
+  .gates i.fail{background:rgba(251,113,133,.17); color:#FB7185; border-color:#FB7185}
+
+  /* ── ตัวเดินเรื่อง ────────────────────────────────────── */
+  #log{position:absolute; left:20px; bottom:18px; z-index:20; width:390px;
+    font-size:11.5px; line-height:1.75; color:var(--dim)}
+  #log div{opacity:0; animation:in .4s forwards}
+  #log b{color:var(--ink); font-weight:600}
+  @keyframes in{to{opacity:1}}
+
+  #verdict{position:absolute; right:20px; bottom:18px; z-index:20;
+    padding:9px 17px; border-radius:5px; font-size:12px; font-weight:700;
+    letter-spacing:.09em; background:var(--panel); border:1px solid var(--line);
+    color:var(--dim); transition:all .45s}
+  #verdict.PASS{color:#34D399;border-color:#34D399;box-shadow:0 0 26px -8px #34D399}
+  #verdict.CORRECTED{color:#F0B429;border-color:#F0B429;box-shadow:0 0 26px -8px #F0B429}
+  #verdict.BLOCKED{color:#FB7185;border-color:#FB7185;box-shadow:0 0 26px -8px #FB7185}
+
+  #tag{position:absolute; top:13px; right:20px; z-index:21; font-size:10px;
+    letter-spacing:.14em; color:#F0B429; border:1px solid #F0B429;
+    padding:3px 9px; border-radius:3px; background:rgba(240,180,41,.1)}
+</style>
+
+<div id="room">
+  <div id="core"><b>CORE</b></div>
+  <div id="top">
+    <h1>MISSION CONTROL<span>คลังท่าออกกำลังกาย · WKO</span></h1>
+    <div class="stages" id="stages"></div>
+    <div class="gates" id="gates"></div>
+  </div>
+  <div id="tag">PROTOTYPE · ข้อมูลสาธิต</div>
+  <div id="log"></div>
+  <div id="verdict">รอคำตัดสิน</div>
+</div>
+
+<script>
+const CAST = [
+  {id:'experience-architect', name:'EXPERIENCE ARCHITECT', th:'สถาปนิกประสบการณ์', x:14,   y:33, c:'#35C9F0'},
+  {id:'time-marshal',         name:'TIME MARSHAL',         th:'จอมพลเวลา',         x:30.5, y:31, c:'#F0B429'},
+  {id:'the-visionary',        name:'THE VISIONARY',        th:'ผู้มองเห็นภาพ',      x:70.5, y:31, c:'#A855F7'},
+  {id:'systems-sage',         name:'SYSTEMS SAGE',         th:'ปราชญ์ระบบ',         x:87,   y:33, c:'#3B82F6'},
+  {id:'bug-hunter',           name:'BUG HUNTER',           th:'นักล่าจุดบกพร่อง',   x:13,   y:76, c:'#34D399'},
+  {id:'the-interface',        name:'THE INTERFACE',        th:'ฝั่งหน้าบ้าน',       x:32,   y:80, c:'#E879F9'},
+  {id:'the-core',             name:'THE CORE',             th:'ฝั่งหลังบ้าน',       x:65,   y:80, c:'#10D9A0'},
+  {id:'the-orchestrator',     name:'THE ORCHESTRATOR',     th:'ผู้ตรวจนำ',          x:85,   y:76, c:'#60A5FA'},
+];
+const STAGES = ['intake','product','analysis','design','build','review','quality','release'];
+const GATES  = ['G1','G2','G3','G4','G5','G6'];
+
+const room = document.getElementById('room');
+const actors = {};
+for (const p of CAST){
+  const el = document.createElement('div');
+  el.className = 'actor';
+  el.style.cssText = `left:${p.x}%; top:${p.y}%; --tint:${p.c}`;
+  el.innerHTML = `<div class="shadow"></div>
+    <div class="body" style="background-image:url(art/crew-${p.id}.png)"></div>
+    <div class="bubble"></div>
+    <div class="plate">${p.name}<small>${p.th}</small></div>
+    <div class="meter"><i></i></div>`;
+  room.appendChild(el);
+  actors[p.id] = {el, home:{x:p.x, y:p.y}, ...p};
+}
+
+document.getElementById('stages').innerHTML =
+  STAGES.map(s=>`<div><b>${s}</b></div>`).join('');
+document.getElementById('gates').innerHTML =
+  GATES.map(g=>`<i>${g}</i>`).join('');
+
+const stageEls = [...document.querySelectorAll('#stages div')];
+const gateEls  = [...document.querySelectorAll('#gates i')];
+const logEl    = document.getElementById('log');
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+
+function log(who,what){
+  const d = document.createElement('div');
+  d.innerHTML = who ? `<b style="color:${who.c}">${who.name}</b> ${what}` : what;
+  logEl.appendChild(d);
+  while (logEl.children.length > 7) logEl.firstChild.remove();
+}
+function say(a,text){
+  const b = a.el.querySelector('.bubble');
+  b.textContent = text; b.classList.add('show');
+}
+function hush(a){ a.el.querySelector('.bubble').classList.remove('show'); }
+
+function beam(from,to,colour){
+  const r = room.getBoundingClientRect();
+  const x1 = r.width*from.x/100, y1 = r.height*from.y/100 - 60;
+  const x2 = r.width*to.x/100,   y2 = r.height*to.y/100 - 60;
+  const el = document.createElement('div');
+  el.className = 'beam';
+  el.style.cssText = `left:${x1}px; top:${y1}px; --tint:${colour};
+    width:${Math.hypot(x2-x1,y2-y1)}px;
+    transform:rotate(${Math.atan2(y2-y1,x2-x1)}rad)`;
+  room.appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('fire'));
+  setTimeout(()=>el.remove(), 900);
+}
+
+const CENTRE = {x:50, y:57};
+
+async function walkTo(a, dest){
+  a.el.classList.add('walking');
+  a.el.style.left = dest.x + '%';
+  a.el.style.top  = dest.y + '%';
+  await wait(2250);
+  a.el.classList.remove('walking');
+}
+
+async function dispatch(a, task, actions){
+  beam(CENTRE, a.home, a.c);
+  await wait(500);
+  a.el.classList.add('awake');
+  log(a, 'ได้รับคำสั่ง — ' + task);
+  say(a, 'รับทราบ');
+  await wait(900);
+  hush(a);
+
+  // เดินออกมากลางห้องเพื่อรับงาน แล้วกลับไปทำที่โต๊ะ
+  await walkTo(a, {x:CENTRE.x + (a.home.x<50?-11:11), y:CENTRE.y});
+  await wait(350);
+  await walkTo(a, a.home);
+
+  a.el.classList.add('working');
+  for (const act of actions){
+    say(a, act); log(a, act);
+    await wait(1250);
+  }
+  hush(a);
+  a.el.classList.remove('working');
+  await wait(250);
+}
+
+function done(a, word){
+  say(a, word);
+  setTimeout(()=>{ hush(a); a.el.classList.remove('awake'); }, 1600);
+  beam(a.home, CENTRE, a.c);
+}
+
+function verdict(v, note){
+  const el = document.getElementById('verdict');
+  el.className = v; el.textContent = v + (note ? ' · ' + note : '');
+}
+
+const SCRIPT = [
+  {actor:'the-visionary',        stage:1, gate:0, task:'เขียนข้อกำหนดผลิตภัณฑ์',
+   acts:['เขียน PRD-WKO-001.md','เพิ่ม US-01 ถึง US-05','เกณฑ์ยอมรับ 34 ข้อ'], end:'PRD ฉบับ 01 เสร็จ'},
+  {actor:'time-marshal',         stage:1, task:'ประมาณงานและวางกำหนดการ',
+   acts:['เขียน EST-WKO-001.md','แตกงาน 7 ก้อน · 45 วัน'], end:'แผนพร้อม'},
+  {actor:'systems-sage',         stage:2, gate:1, task:'แปลงเป็นข้อกำหนดที่สร้างได้',
+   acts:['เขียน SRS-WKO-001.md','ทำตารางตรวจย้อนกลับ','แปลงเป็น TC-01 ถึง TC-19'], end:'SRS ฉบับ 02'},
+  {actor:'experience-architect', stage:3, gate:2, task:'ออกแบบระบบหน้าจอ',
+   acts:['เขียน DSN-WKO-001.md','โทเคน 4 กลุ่ม','วัดความต่างสี 10 คู่'], end:'ต่ำสุด 6.21:1'},
+  {actor:'the-interface',        stage:4, task:'สร้างส่วนติดต่อผู้ใช้',
+   acts:['เขียน src/screens/Detail.tsx','เขียน src/lib/search.ts','npm test — 71 ผ่าน'], end:'หน้าจอครบ 5 หน้า'},
+  {actor:'the-core',             stage:4, gate:3, task:'สร้างฝั่งเซิร์ฟเวอร์',
+   acts:['เขียน server/index.mjs','เขียน server/aggregate.mjs'], end:'ปลายทางสถิติพร้อม'},
+  {actor:'the-orchestrator',     stage:5, gate:4, task:'ทบทวนโค้ดทั้งหมด',
+   acts:['อ่านโค้ดที่เปลี่ยน','พบ MAJOR-04 · MAJOR-05'], end:'ไม่มี BLOCKER — APPROVE'},
+  {actor:'bug-hunter',           stage:6, gate:5, task:'ตรวจคุณภาพก่อนปล่อย',
+   acts:['axe 7 หน้า — สะอาด','เดินด้วยคีย์บอร์ดครบ','ซ้อมถอยกลับ 0.024 วิ'], end:'PASS WITH ADVISORIES'},
+];
+
+async function run(){
+  log(null, '<b>เจ้าของโปรเจกต์</b> สั่ง — ทำให้จบเลย');
+  verdict('', 'รอคำตัดสิน');
+  await wait(1200);
+
+  for (let i = 0; i < SCRIPT.length; i++){
+    const s = SCRIPT[i];
+    const a = actors[s.actor];
+    stageEls.forEach((e,n)=>{ e.className = n < s.stage ? 'done' : n === s.stage ? 'now' : ''; });
+
+    await dispatch(a, s.task, s.acts);
+
+    // ให้เห็นลูป "ทำใหม่จนกว่าจะแม่น" หนึ่งรอบจริง
+    if (s.actor === 'systems-sage'){
+      verdict('CORRECTED','รอบที่ 1 · ไม่มีบัญชีข้อผิดพลาด');
+      log(null, '<b style="color:#F0B429">correcter</b> ตีกลับ — ต้องทำใหม่');
+      beam(CENTRE, a.home, '#F0B429');
+      a.el.classList.add('working');
+      say(a, 'แก้ตามที่ตีกลับ — ออกฉบับ 02');
+      await wait(1900);
+      hush(a); a.el.classList.remove('working');
+    }
+
+    done(a, s.end);
+    if (s.gate !== undefined) gateEls[s.gate].className = 'pass';
+    verdict('PASS', s.end);
+    await wait(1400);
+  }
+
+  stageEls.forEach(e=>e.className='done');
+  verdict('BLOCKED','เหลือ 3 เงื่อนไขที่ต้องใช้คน');
+  log(null, '<b style="color:#FB7185">correcter</b> หยุดสายงาน — โค้ชต้องเซ็นรับรองท่า · ต้องวัดค่าฐานจากผู้ใช้จริง');
+  await wait(5000);
+  logEl.innerHTML = '';
+  gateEls.forEach(e=>e.className='');
+  run();
+}
+run();
+</script>
