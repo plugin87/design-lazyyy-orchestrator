@@ -349,7 +349,10 @@ const server = createServer(async (req, res) => {
       projects, active, roster,
       project: projects[active] ?? { stage: null, gates: [] },
       mode: REPLAY ? 'replay' : 'live',
-      transport, canRun: ALLOW_RUN, workspace: PROJECTS,
+      transport, canRun: ALLOW_RUN,
+        // The log is history and can end mid-run when a process is killed. The
+        // page needs the live answer, not the last thing anybody wrote down.
+        running: !!running, workspace: PROJECTS,
     }));
     return;
   }

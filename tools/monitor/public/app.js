@@ -19,13 +19,34 @@ const CENTRE = { x: 50, y: 60 };
    is finished handoffs, the streak is consecutive PASS verdicts from the
    correcter. None of it is invented — if the room is quiet, the score is too. */
 const game = { xp: 0, acts: 0, handoffs: 0, streak: 0, best: 0, unlocked: new Set() };
-const state = { stations: [], byId: new Map(), byAgent: new Map(), roster: null };
+const state = { stations: [], byId: new Map(), byAgent: new Map(), roster: null,
+                running: false, sawRun: false, floorEpoch: 0 };
+
+/* Nobody may be shown working unless a run is actually live.
+ *
+ * `sawRun` keeps this from blanking a pipeline driven by something that never
+ * announces itself: only a run seen to *end* closes the floor. */
+const floorIsLive = () => !state.sawRun || state.running;
+
+/* Waking a desk is animated, and an animation outlives the event that started
+ * it — `dispatch` sleeps 420ms before it even adds the class, then walks for
+ * another 2.4s. History is replayed in full on every connection, so those
+ * continuations land long after the run they belong to was cleared and quietly
+ * put a character back to work. Every clear bumps the epoch; every step of an
+ * animation checks that its epoch is still the current one and drops out if it
+ * is not. */
+const stale = epoch => epoch !== state.floorEpoch;
 
 /* ── boot ───────────────────────────────────────────────────────────────── */
 
 const res = await fetch('/state');
 const boot = await res.json();
 const { project, projects, active, roster, mode, transport, canRun, workspace } = boot;
+// The server is the only thing that knows whether a process is alive right
+// now. The log cannot say so: a run killed outright writes no ending, and
+// every page is handed that log to replay.
+state.running = !!boot.running;
+state.sawRun = true;
 state.roster = roster;
 state.projects = projects ?? {};
 state.active = active;
@@ -160,8 +181,9 @@ function wire(from, to, colour, bend = -14) {
 
 /** Walk there, then back. Footsteps are timed to the gait so the sound and the
  *  animation are the same event rather than two things that drift apart. */
-async function walk(station, dest) {
+async function walk(station, dest, epoch = state.floorEpoch) {
   const el = station.el;
+  if (stale(epoch)) return;
   const from = parseFloat(el.style.left);
   el.classList.toggle('facing-left', dest.x < from);
   el.classList.add('walking');
@@ -173,16 +195,22 @@ async function walk(station, dest) {
   await sleep(2400);
   clearInterval(steps);
   el.classList.remove('walking');
+  // A walk abandoned mid-stride would otherwise leave the character stranded
+  // out on the floor, away from the desk it belongs to.
+  if (stale(epoch)) { el.style.left = station.home.x + '%'; el.style.top = station.home.y + '%'; }
 }
 
 async function dispatch(station) {
   const el = station.el;
   if (el.classList.contains('busy')) return;
+  if (!floorIsLive()) return;
+  const epoch = state.floorEpoch;
 
   $('#core').classList.add('busy');
   wire(CENTRE, station.home, station.color);
   Sound.dispatch();
   await sleep(420);
+  if (stale(epoch)) return;
 
   el.classList.add('awake', 'busy');
   focus(station);
@@ -195,9 +223,20 @@ async function dispatch(station) {
 
   // step out to take the order, then back to the desk to do the work
   const side = station.home.x < 50 ? -12 : 12;
-  await walk(station, { x: CENTRE.x + side, y: CENTRE.y });
+  await walk(station, { x: CENTRE.x + side, y: CENTRE.y }, epoch);
+  if (stale(epoch)) return;
   await sleep(300);
-  await walk(station, station.home);
+  if (stale(epoch)) return;
+  await walk(station, station.home, epoch);
+}
+
+/** Record an event in the feed without letting it move anybody. */
+function logOnly(ev) {
+  const who = ev.agent ?? 'orchestrator';
+  const what = ev.kind === 'prompt' ? shorten(ev.text ?? '')
+             : ev.path ? `${ev.tool} ${ev.path}`
+             : `${ev.tool ?? ev.kind} ${shorten(ev.text ?? '')}`.trim();
+  log(`<b>${escape(who)}</b> ${escape(what.slice(0, 96))}`);
 }
 
 /** Everything running right now, as a list. Laid out, so it cannot collide. */
@@ -354,6 +393,35 @@ function say(station, text) {
   focus(station);
   clearTimeout(msg._t);
   msg._t = setTimeout(() => el.classList.remove('speaking'), 5000);
+}
+
+/** Everyone off the floor, because the run is over.
+ *
+ *  A run does not always end on a stage boundary — it is stopped, it hits a
+ *  limit, the process is killed. Whoever was mid-stage then keeps the `busy`
+ *  class and a clock that counts up for as long as the page stays open, so the
+ *  room shows a character working minutes after the process that character
+ *  stood for is gone. A silent room means a silent pipeline; a room inventing
+ *  work is worse than one showing nothing.
+ *
+ *  Deliberately not finish(): that one plays the handoff chime and draws the
+ *  wire to the centre, which would report a delivery that never happened. */
+function standDown(reason) {
+  state.floorEpoch++;          // every animation still in flight gives up here
+  for (const s of state.stations) {
+    if (!s.el.classList.contains('busy') && !s.el.classList.contains('walking')) continue;
+    clearInterval(s.timer);
+    s.since = 0;
+    s.el.classList.remove('busy', 'walking', 'speaking', 'focus');
+    s.el.style.left = s.home.x + '%';
+    s.el.style.top = s.home.y + '%';
+    s.el.querySelector('.what').textContent = reason;
+    s.el.querySelector('.msg').textContent = '';
+    setTimeout(() => { s.el.classList.remove('awake'); dock(); }, 1800);
+  }
+  $('#core').classList.remove('busy');
+  $('#brief').classList.remove('on');
+  dock();
 }
 
 function finish(station, text) {
@@ -615,6 +683,13 @@ function connect() {
 function wireStream() {
   source.addEventListener('project', e => applyProject(JSON.parse(e.data)));
 
+  // History arrives in one burst the moment the stream opens. Once it has all
+  // been replayed, sweep anyone the replay left standing — a run that was
+  // killed leaves stage markers with no ending after them, and without this the
+  // room shows those characters working for as long as the page stays open.
+  source.addEventListener('open', () => {});
+  setTimeout(() => { if (!state.running) standDown('สายงานหยุดกลางทาง'); }, 1200);
+
   source.addEventListener('projects', e => {
   state.projects = JSON.parse(e.data);
   applyProject(state.projects[state.active] ?? { stage: null, gates: [] });
@@ -644,6 +719,7 @@ function wireStream() {
     // the run came from the button or from a terminal.
     if (ev.kind === 'run') {
       const run = $('#c-run');
+      state.sawRun = true;
       state.running = ev.state === 'started';
       brand();
       if (state.running) {
@@ -652,11 +728,20 @@ function wireStream() {
       } else {
         run.classList.remove('running');
         run.textContent = '▶ สั่งสายงานทำงาน';
+        standDown(ev.code === 0 ? 'สายงานจบแล้ว' : 'สายงานหยุดกลางทาง');
       }
       return;
     }
 
     if (ev.kind !== 'stage') return;
+
+    // Nobody works when no run is live. A stage marker can outlive its run —
+    // the log still holds markers written after a stop, and history is replayed
+    // in full to every new connection — and without this guard replaying them
+    // lights a desk that has had no process behind it for minutes.
+    // `sawRun` keeps this from blanking a run driven by something that never
+    // announces itself: only a run seen to *end* closes the floor.
+    if (!floorIsLive() && ev.state !== 'done') return;
 
     // Wake the desk whose role this stage belongs to. Without this the room
     // stayed dark for the whole run, because a role driven from the shell never
@@ -686,6 +771,7 @@ function wireStream() {
     const { state: st, code } = JSON.parse(e.data);
     const run = $('#c-run');
     $('#chat-send').disabled = st === 'started';
+    state.sawRun = true;
     state.running = st === 'started';
     brand();
     if (st === 'started') {
@@ -698,6 +784,7 @@ function wireStream() {
       run.classList.remove('running');
       run.textContent = '▶ สั่งสายงานทำงาน';
       run.title = '';
+      standDown(code === 0 ? 'สายงานจบแล้ว' : 'สายงานหยุดกลางทาง');
       if (st === 'ended' && code === 0) {
         const box = $('#progress');
         box.querySelector('.bar i').style.width = '100%';
@@ -733,6 +820,15 @@ function wireStream() {
   markBusy(ev.project);
   if (ev.session && ev.session !== watchedSession) { watchedSession = ev.session; pollUsage(); }
   const station = ev.agent ? resolve(ev.agent, ev.path) : null;
+
+  // The log outlives the processes that wrote it, and every connection is sent
+  // the last 300 lines. Anything that would put a character to work is dropped
+  // once the run it belonged to has ended — the feed below still records it,
+  // because it did happen; what must not happen is the floor acting it out
+  // again with nothing behind it.
+  if (!floorIsLive() && ['prompt', 'agent_start', 'tool'].includes(ev.kind)) {
+    if (!ev.verdict) { logOnly(ev); return; }
+  }
 
   switch (ev.kind) {
     case 'prompt':

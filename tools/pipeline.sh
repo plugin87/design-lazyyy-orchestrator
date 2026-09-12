@@ -52,6 +52,11 @@ warn() { printf '\033[33m  ! %s\033[0m\n' "$*"; }
 # it must not be built into the pipeline itself.
 role() {
   local agent="$1" stage="$2" want="$3" task="$4" expect="${5:-}"
+  # Stamped before the role starts, so `expect` can ask whether THIS run wrote
+  # the file rather than only whether a file is there. A run whose agents were
+  # all killed used to sail through four stages in seconds, reporting `done` on
+  # documents a previous run had left behind.
+  local started_at; started_at="$(date +%s)"
   mark "$stage" "$agent" running
   say "$stage · $agent → $want  ($STAGE_N/$STAGE_TOTAL)"
   claude -p "คุณคือบทบาท $agent ในสายงานนี้ ทำงานนี้ให้จบในเทิร์นเดียว
@@ -75,6 +80,15 @@ $task
     mark "$stage" "$agent" failed
     FAILED="$FAILED $stage"
     return 1
+  fi
+  if [ -n "$expect" ]; then
+    local touched; touched="$(stat -f %m "$expect" 2>/dev/null || stat -c %Y "$expect" 2>/dev/null || echo 0)"
+    if [ "$touched" -lt "$started_at" ]; then
+      warn "$stage ไม่ได้แตะ $expect ในรอบนี้ · ไฟล์เป็นของรอบก่อน"
+      mark "$stage" "$agent" failed
+      FAILED="$FAILED $stage"
+      return 1
+    fi
   fi
   mark "$stage" "$agent" done
 }
@@ -101,7 +115,24 @@ PY
 }
 FAILED=""
 runmark started
-trap 'runmark ended 130' INT TERM
+
+# The handler used to announce the end and then fall through, because a bash
+# trap does not exit on its own. Pressing stop emitted `run ended code=130`,
+# the room showed the run finished, and the pipeline carried on into the next
+# stage and started another `claude -p`. The person pressing stop is the person
+# trying to stop the spend, so the button lying costs them money.
+#
+# Kill the whole process group first — the in-flight `claude -p` is a child and
+# outlives a plain `exit` — then announce, then leave.
+halt() {
+  trap - INT TERM
+  kill -TERM -$$ 2>/dev/null || true
+  sleep 1
+  kill -KILL -$$ 2>/dev/null || true
+  runmark ended 130
+  exit 130
+}
+trap halt INT TERM
 
 STAGES="${1:-all}"
 run_stage() { [ "$STAGES" = all ] || [ "$STAGES" = "$1" ]; }
