@@ -272,6 +272,15 @@ const server = createServer(async (req, res) => {
       } catch { /* nothing has run yet */ }
     }
 
+    // The replay above is history, and history can contradict the present: a run
+    // killed outright writes no ending, so the last marker in the log stays
+    // "started" forever and every page that opens afterwards replays it and
+    // believes a run is live. Only this process knows whether one is.
+    //
+    // So the burst is closed with the answer. Everything before this line is the
+    // past; this line is now.
+    res.write(`event: synced\ndata: ${JSON.stringify({ running: !!running })}\n\n`);
+
     clients.add(res);
     const beat = setInterval(() => { try { res.write(': beat\n\n'); } catch {} }, 15000);
     req.on('close', () => { clearInterval(beat); clients.delete(res); });

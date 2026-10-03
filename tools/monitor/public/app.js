@@ -683,12 +683,29 @@ function connect() {
 function wireStream() {
   source.addEventListener('project', e => applyProject(JSON.parse(e.data)));
 
-  // History arrives in one burst the moment the stream opens. Once it has all
-  // been replayed, sweep anyone the replay left standing — a run that was
-  // killed leaves stage markers with no ending after them, and without this the
-  // room shows those characters working for as long as the page stays open.
-  source.addEventListener('open', () => {});
-  setTimeout(() => { if (!state.running) standDown('สายงานหยุดกลางทาง'); }, 1200);
+  // The server closes the history burst by telling us what is true now. Until
+  // this arrives everything replayed is the past, and the past is allowed to be
+  // wrong about the present: a run killed outright never wrote its ending, so
+  // the log's last word is "started" and stays that way forever.
+  //
+  // Waiting on a timer instead would be a guess about how long a replay takes,
+  // and it would still be reading `state.running` — the value the replay just
+  // overwrote. This reads the only answer that comes from a live process.
+  source.addEventListener('synced', e => {
+    let live = false;
+    try { live = !!JSON.parse(e.data).running; } catch { /* treat as not running */ }
+    state.running = live;
+    const run = $('#c-run');
+    if (live) {
+      run.classList.add('running');
+      run.textContent = '■ หยุดสายงาน';
+    } else {
+      run.classList.remove('running');
+      run.textContent = '▶ สั่งสายงานทำงาน';
+      run.title = '';
+      standDown('สายงานหยุดกลางทาง');
+    }
+  });
 
   source.addEventListener('projects', e => {
   state.projects = JSON.parse(e.data);
